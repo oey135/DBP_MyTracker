@@ -44,10 +44,11 @@ function ServiceAutocomplete({ value, onChange, onSelect }) {
   const q = value.trim().toLowerCase();
   const suggestions = q.length > 0
     ? popularServices.filter(s => {
-        const titleMatch  = s.title.toLowerCase().includes(q);
+        const titleMatch   = s.title.toLowerCase().includes(q);
         const titleKoMatch = (s.titleKo ?? "").toLowerCase().includes(q);
-        const exactMatch  = s.title.toLowerCase() === q || (s.titleKo ?? "").toLowerCase() === q;
-        return (titleMatch || titleKoMatch) && !exactMatch;
+        // 영문 제목과 완전히 동일한 경우에만 제외 (한국어 입력은 항상 표시)
+        const exactEnMatch = s.title.toLowerCase() === q;
+        return (titleMatch || titleKoMatch) && !exactEnMatch;
       }).slice(0, 6)
     : [];
 
