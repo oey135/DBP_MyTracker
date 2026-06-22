@@ -2,15 +2,15 @@
 // components/SubModal.jsx
 // 구독 추가 / 수정 바텀시트 모달
 // DayPicker (매월 결제일 선택 UI) 포함
+// ServiceAutocomplete (서비스명 자동완성) 포함
 // ─────────────────────────────────────────────
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { getBillingDay } from "../utils/subscriptionUtils";
 import { CURRENT_UID } from "../constants/serviceMeta";
+import popularServices from "../constants/popularServices.json";
 
 // ── DayPicker ────────────────────────────────
-// billing_date를 "2000-01-DD" 형태로 저장하기 위해
-// 1~31 버튼 그리드로 일(day)만 선택받음
 function DayPicker({ value, onChange }) {
   const selected = value ? getBillingDay(value) : null;
   return (
@@ -35,40 +35,129 @@ function DayPicker({ value, onChange }) {
   );
 }
 
+// ── ServiceAutocomplete ───────────────────────
+// 서비스명 입력 시 popularServices.json에서 자동완성 목록 표시
+function ServiceAutocomplete({ value, onChange, onSelect, disabled }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  const suggestions = value.trim().length > 0
+    ? popularServices.filter(s =>
+        s.title.toLowerCase().includes(value.toLowerCase()) &&
+        s.title.toLowerCase() !== value.toLowerCase()
+      ).slice(0, 6)
+    : [];
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (service) => {
+    onSelect(service);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <input
+        type="text"
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="예: Netflix"
+        disabled={disabled}
+        style={{
+          width: "100%", padding: "10px 14px", borderRadius: 12,
+          border: "1.5px solid #E8E8E8", fontSize: 15, outline: "none",
+          boxSizing: "border-box",
+          background: disabled ? "#F8F8F8" : "#fff",
+          color:      disabled ? "#aaa"    : "#1A1A2E",
+          fontFamily: "inherit",
+        }}
+      />
+
+      {/* 자동완성 드롭다운 */}
+      {open && suggestions.length > 0 && !disabled && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "#fff", borderRadius: 12, zIndex: 100,
+          border: "1.5px solid #E8E8E8",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+          overflow: "hidden",
+        }}>
+          {suggestions.map((s, i) => (
+            <button
+              key={s.title}
+              type="button"
+              onMouseDown={() => handleSelect(s)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center",
+                justifyContent: "space-between", padding: "10px 14px",
+                background: "none", border: "none", cursor: "pointer",
+                textAlign: "left", fontFamily: "inherit",
+                borderTop: i > 0 ? "1px solid #F5F5F5" : "none",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#F8F7FF"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <span style={{ fontSize: 14, color: "#1A1A2E", fontWeight: 500 }}>{s.title}</span>
+              <span style={{ fontSize: 12, color: "#aaa" }}>
+                {s.price.toLocaleString("ko-KR")}원
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── SubModal ─────────────────────────────────
 const EMPTY_FORM = {
   title: "", price: "", start_date: "", billing_date: "", memo: "", status: "subscribed",
 };
 
-const TEXT_FIELDS = [
-  { label: "서비스명",    key: "title",      type: "text",   placeholder: "예: Netflix", disabledOnEdit: true },
-  { label: "월 금액 (원)", key: "price",     type: "number", placeholder: "예: 17000"  },
-  { label: "시작일",      key: "start_date", type: "date",   placeholder: ""            },
-  { label: "메모",        key: "memo",       type: "text",   placeholder: "선택 사항"   },
+const NON_TITLE_FIELDS = [
+  { label: "월 금액 (원)", key: "price",      type: "number", placeholder: "예: 17000"  },
+  { label: "시작일",       key: "start_date", type: "date",   placeholder: ""           },
+  { label: "메모",         key: "memo",       type: "text",   placeholder: "선택 사항"  },
 ];
 
 export default function SubModal({ initial, existingTitles, onSave, onClose }) {
   const isEdit = !!initial;
-  const [form, setForm] = useState(
+  const [form,  setForm]  = useState(
     initial ? { ...initial, price: String(initial.price) } : EMPTY_FORM
   );
   const [error, setError] = useState("");
 
   const set = (k, v) => setForm(prev => {
     const next = { ...prev, [k]: v };
-    // 시작일 변경 시, 결제일이 아직 선택 안 됐거나 이전 시작일과 같았으면 자동 동기화
     if (k === "start_date" && v) {
-      const day = v.split("-")[2]; // "2024-03-15" → "15"
+      const day = v.split("-")[2];
       const newBillingDate = `2000-01-${day}`;
-      const prevDay = prev.start_date ? prev.start_date.split("-")[2] : null;
+      const prevDay        = prev.start_date   ? prev.start_date.split("-")[2]   : null;
       const prevBillingDay = prev.billing_date ? prev.billing_date.split("-")[2] : null;
-      // 결제일이 없거나, 이전 시작일과 결제일이 같았던 경우에만 자동 설정
       if (!prev.billing_date || prevDay === prevBillingDay) {
         next.billing_date = newBillingDate;
       }
     }
     return next;
   });
+
+  // 자동완성 항목 선택 시 title + price 한 번에 채움
+  const handleServiceSelect = (service) => {
+    setForm(prev => ({
+      ...prev,
+      title: service.title,
+      price: String(service.price),
+    }));
+    setError("");
+  };
 
   const handleSave = () => {
     if (!form.title.trim())
@@ -109,8 +198,26 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
           >✕</button>
         </div>
 
-        {/* 텍스트 입력 필드들 */}
-        {TEXT_FIELDS.map(f => (
+        {/* 서비스명 (자동완성) */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, color: "#666", display: "block", marginBottom: 6 }}>
+            서비스명
+          </label>
+          <ServiceAutocomplete
+            value={form.title}
+            onChange={v => { set("title", v); setError(""); }}
+            onSelect={handleServiceSelect}
+            disabled={isEdit}
+          />
+          {!isEdit && (
+            <p style={{ fontSize: 11, color: "#bbb", margin: "5px 0 0 2px" }}>
+              입력하면 자주 쓰는 서비스가 자동완성됩니다
+            </p>
+          )}
+        </div>
+
+        {/* 나머지 텍스트 필드 */}
+        {NON_TITLE_FIELDS.map(f => (
           <div key={f.key} style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 13, color: "#666", display: "block", marginBottom: 6 }}>
               {f.label}
@@ -120,13 +227,11 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
               value={form[f.key]}
               onChange={e => set(f.key, e.target.value)}
               placeholder={f.placeholder}
-              disabled={isEdit && f.disabledOnEdit}
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 12,
                 border: "1.5px solid #E8E8E8", fontSize: 15, outline: "none",
-                boxSizing: "border-box",
-                background: (isEdit && f.disabledOnEdit) ? "#F8F8F8" : "#fff",
-                color:      (isEdit && f.disabledOnEdit) ? "#aaa"    : "#1A1A2E",
+                boxSizing: "border-box", background: "#fff", color: "#1A1A2E",
+                fontFamily: "inherit",
               }}
             />
           </div>
@@ -164,6 +269,7 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
                   background: form.status === val ? "#7F77DD" : "#F5F5F5",
                   color:      form.status === val ? "#fff"    : "#666",
                   border: "none", fontWeight: form.status === val ? 600 : 400,
+                  fontFamily: "inherit",
                 }}
               >
                 {label}
@@ -182,7 +288,8 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
           onClick={handleSave}
           style={{
             width: "100%", padding: "14px", background: "#7F77DD", color: "#fff",
-            border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: "pointer",
+            border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700,
+            cursor: "pointer", fontFamily: "inherit",
           }}
         >
           저장
