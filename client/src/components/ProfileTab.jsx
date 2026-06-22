@@ -6,9 +6,9 @@
 import { useState, useEffect } from "react";
 import { formatPrice } from "../utils/subscriptionUtils";
 import { getServiceMeta } from "../constants/serviceMeta";
-import { getUserById } from "../db/api";
+import { getUserById, deleteAccount } from "../db/api";
 
-export default function ProfileTab({ subscriptions, confirm, onLogout }) {
+export default function ProfileTab({ subscriptions, confirm, onLogout, onWithdraw }) {
   const [me, setMe] = useState(null);
 
   useEffect(() => {
@@ -40,6 +40,22 @@ export default function ProfileTab({ subscriptions, confirm, onLogout }) {
       danger: false,
     });
     if (ok) onLogout();
+  };
+
+  const handleWithdraw = async () => {
+    const ok = await confirm({
+      message: "정말 탈퇴하시겠습니까?\n모든 구독 정보와 친구 관계가\n영구적으로 삭제됩니다.",
+      confirmText: "탈퇴",
+      cancelText: "취소",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteAccount();
+      onWithdraw();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -114,6 +130,15 @@ export default function ProfileTab({ subscriptions, confirm, onLogout }) {
         fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
       }}>
         로그아웃
+      </button>
+
+      {/* 회원탈퇴 — 의도치 않은 탭을 방지하기 위해 눈에 안 띄게 */}
+      <button onClick={handleWithdraw} style={{
+        background: "none", border: "none", cursor: "pointer",
+        color: "#ccc", fontSize: 12, width: "100%",
+        padding: "12px 0 4px", fontFamily: "inherit",
+      }}>
+        회원탈퇴
       </button>
     </div>
   );

@@ -26,6 +26,9 @@ const pool = mysql.createPool({
   queueLimit:         0,
   // DATE 컬럼을 JS Date가 아닌 문자열 "YYYY-MM-DD" 로 반환
   dateStrings:        true,
+  // Render 슬립 후 재시작 시 끊긴 연결 자동 복구
+  enableKeepAlive:    true,
+  keepAliveInitialDelay: 0,
 });
 
 export default pool;

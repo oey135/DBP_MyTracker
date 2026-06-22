@@ -58,6 +58,13 @@ export default function App() {
     setSubscriptions([]);
   };
 
+  const handleWithdraw = () => {
+    clearToken();
+    setUser(null);
+    setTab("home");
+    setSubscriptions([]);
+  };
+
   // ── 확인 모달 ─────────────────────────────
   const { confirm, confirmModal } = useConfirm();
 
@@ -146,7 +153,7 @@ export default function App() {
         {tab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} />}
         {tab === "calendar"      && <CalendarTab      subscriptions={subscriptions} />}
         {tab === "friends"       && <FriendsTab       confirm={confirm} />}
-        {tab === "profile"       && <ProfileTab       subscriptions={subscriptions} confirm={confirm} onLogout={handleLogout} />}
+        {tab === "profile"       && <ProfileTab       subscriptions={subscriptions} confirm={confirm} onLogout={handleLogout} onWithdraw={handleWithdraw} />}
       </div>
 
       <BottomNav tab={tab} setTab={setTab} />

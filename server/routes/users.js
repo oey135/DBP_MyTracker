@@ -98,4 +98,21 @@ router.get("/me", async (req, res) => {
   }
 });
 
+// ── 회원 탈퇴 ─────────────────────────────────
+// DELETE /api/users/me  (인증 필요)
+// user 삭제 시 FK CASCADE로 subscription, friends 모두 삭제됨
+router.delete("/me", async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    const [result] = await pool.query(
+      `DELETE FROM user WHERE uid = ?`, [uid]
+    );
+    if (result.affectedRows === 0)
+      return res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

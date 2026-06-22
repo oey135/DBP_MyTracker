@@ -9,10 +9,14 @@ import { getServiceMeta } from "../constants/serviceMeta";
 
 export default function SubscriptionsTab({ subscriptions, onAdd, onEdit, onDelete, onRestore }) {
   const [filter, setFilter] = useState("subscribed");
+  const [search, setSearch] = useState("");
 
-  const filtered = subscriptions.filter(s =>
-    filter === "all" ? true : s.status === filter
-  );
+  const filtered = subscriptions.filter(s => {
+    const matchFilter = filter === "all" ? true : s.status === filter;
+    const matchSearch = s.title.toLowerCase().includes(search.toLowerCase()) ||
+                        (s.memo ?? "").toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
   const monthlyTotal = filtered
     .filter(s => s.status === "subscribed")
     .reduce((sum, s) => sum + s.price, 0);
@@ -32,6 +36,35 @@ export default function SubscriptionsTab({ subscriptions, onAdd, onEdit, onDelet
         >
           + 추가
         </button>
+      </div>
+
+      {/* 검색창 */}
+      <div style={{ position: "relative", marginBottom: 12 }}>
+        <span style={{
+          position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+          fontSize: 15, color: "#bbb", pointerEvents: "none",
+        }}>🔍</span>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="서비스명 또는 메모 검색"
+          style={{
+            width: "100%", padding: "10px 36px 10px 36px", borderRadius: 12,
+            border: "1.5px solid #E8E8E8", fontSize: 14, outline: "none",
+            boxSizing: "border-box", background: "#F8F8F8", color: "#1A1A2E",
+            fontFamily: "inherit",
+          }}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            style={{
+              position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 16, color: "#bbb", padding: 0, lineHeight: 1,
+            }}
+          >✕</button>
+        )}
       </div>
 
       {/* 필터 탭 */}

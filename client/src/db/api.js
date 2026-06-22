@@ -93,3 +93,7 @@ export const removeFriend = (friendUid) =>
 /** 내 프로필 */
 export const getUserById = (_uid) =>
   request("GET", "/api/users/me");
+
+/** 회원 탈퇴 */
+export const deleteAccount = () =>
+  request("DELETE", "/api/users/me");
