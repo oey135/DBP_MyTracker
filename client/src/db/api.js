@@ -58,6 +58,8 @@ export const addSubscription = (data) =>
 export const updateSubscription = (_uid, title, updates) =>
   request("PUT", `/api/subscriptions/${encodeURIComponent(title)}`, updates);
 
+
+
 /** 구독 삭제 */
 export const deleteSubscription = (_uid, title) =>
   request("DELETE", `/api/subscriptions/${encodeURIComponent(title)}`);

@@ -59,14 +59,14 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ── 구독 수정 (상태 변경·복구 포함) ───────────
+// ── 구독 수정 (제목 변경 포함) ────────────────
 // PUT /api/subscriptions/:title
-// body: 변경할 필드만 전달 (partial update)
+// body: 변경할 필드만 전달. title 포함 시 PK도 함께 변경
 router.put("/:title", async (req, res) => {
-  const uid   = req.user.uid;
-  const title = decodeURIComponent(req.params.title);
-  const allowed = ["price", "start_date", "billing_date", "memo", "status"];
-  const fields  = Object.keys(req.body).filter(k => allowed.includes(k));
+  const uid      = req.user.uid;
+  const oldTitle = decodeURIComponent(req.params.title);
+  const allowed  = ["title", "price", "start_date", "billing_date", "memo", "status"];
+  const fields   = Object.keys(req.body).filter(k => allowed.includes(k));
 
   if (fields.length === 0)
     return res.status(400).json({ error: "변경할 필드가 없습니다" });
@@ -78,7 +78,8 @@ router.put("/:title", async (req, res) => {
   }
 
   const setClause = fields.map(f => `${f} = ?`).join(", ");
-  const values    = [...fields.map(f => req.body[f]), uid, title];
+  const values    = [...fields.map(f => req.body[f]), uid, oldTitle];
+  const newTitle  = req.body.title ?? oldTitle;
 
   try {
     const [result] = await pool.query(
@@ -90,10 +91,12 @@ router.put("/:title", async (req, res) => {
 
     const [[updated]] = await pool.query(
       `SELECT * FROM subscription WHERE uid = ? AND title = ?`,
-      [uid, title]
+      [uid, newTitle]
     );
     res.json(updated);
   } catch (err) {
+    if (err.code === "ER_DUP_ENTRY")
+      return res.status(409).json({ error: "이미 등록된 서비스입니다" });
     res.status(500).json({ error: err.message });
   }
 });

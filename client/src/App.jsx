@@ -116,8 +116,13 @@ export default function App() {
 
   const handleSave = async (data) => {
     try {
-      if (subModal.type === "add") await addSubscription(data);
-      else await updateSubscription(null, data.title, data);
+      if (subModal.type === "add") {
+        await addSubscription(data);
+      } else {
+        // title 포함해서 PUT — 서버에서 PK UPDATE로 처리
+        const originalTitle = subModal.data.title;
+        await updateSubscription(null, originalTitle, data);
+      }
       await refresh();
       setSubModal(null);
     } catch (err) { console.error(err); }

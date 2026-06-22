@@ -37,15 +37,18 @@ function DayPicker({ value, onChange }) {
 
 // ── ServiceAutocomplete ───────────────────────
 // 서비스명 입력 시 popularServices.json에서 자동완성 목록 표시
-function ServiceAutocomplete({ value, onChange, onSelect, disabled }) {
+function ServiceAutocomplete({ value, onChange, onSelect }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
-  const suggestions = value.trim().length > 0
-    ? popularServices.filter(s =>
-        s.title.toLowerCase().includes(value.toLowerCase()) &&
-        s.title.toLowerCase() !== value.toLowerCase()
-      ).slice(0, 6)
+  const q = value.trim().toLowerCase();
+  const suggestions = q.length > 0
+    ? popularServices.filter(s => {
+        const titleMatch  = s.title.toLowerCase().includes(q);
+        const titleKoMatch = (s.titleKo ?? "").toLowerCase().includes(q);
+        const exactMatch  = s.title.toLowerCase() === q || (s.titleKo ?? "").toLowerCase() === q;
+        return (titleMatch || titleKoMatch) && !exactMatch;
+      }).slice(0, 6)
     : [];
 
   // 외부 클릭 시 드롭다운 닫기
@@ -69,20 +72,17 @@ function ServiceAutocomplete({ value, onChange, onSelect, disabled }) {
         value={value}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        placeholder="예: Netflix"
-        disabled={disabled}
+        placeholder="예: Netflix 또는 넷플릭스"
         style={{
           width: "100%", padding: "10px 14px", borderRadius: 12,
           border: "1.5px solid #E8E8E8", fontSize: 15, outline: "none",
-          boxSizing: "border-box",
-          background: disabled ? "#F8F8F8" : "#fff",
-          color:      disabled ? "#aaa"    : "#1A1A2E",
+          boxSizing: "border-box", background: "#fff", color: "#1A1A2E",
           fontFamily: "inherit",
         }}
       />
 
       {/* 자동완성 드롭다운 */}
-      {open && suggestions.length > 0 && !disabled && (
+      {open && suggestions.length > 0 && (
         <div style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
           background: "#fff", borderRadius: 12, zIndex: 100,
@@ -105,8 +105,13 @@ function ServiceAutocomplete({ value, onChange, onSelect, disabled }) {
               onMouseEnter={e => e.currentTarget.style.background = "#F8F7FF"}
               onMouseLeave={e => e.currentTarget.style.background = "none"}
             >
-              <span style={{ fontSize: 14, color: "#1A1A2E", fontWeight: 500 }}>{s.title}</span>
-              <span style={{ fontSize: 12, color: "#aaa" }}>
+              <div>
+                <span style={{ fontSize: 14, color: "#1A1A2E", fontWeight: 500 }}>{s.title}</span>
+                {s.titleKo && s.titleKo !== s.title && (
+                  <span style={{ fontSize: 12, color: "#aaa", marginLeft: 6 }}>{s.titleKo}</span>
+                )}
+              </div>
+              <span style={{ fontSize: 12, color: "#aaa", flexShrink: 0 }}>
                 {s.price.toLocaleString("ko-KR")}원
               </span>
             </button>
@@ -207,13 +212,10 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
             value={form.title}
             onChange={v => { set("title", v); setError(""); }}
             onSelect={handleServiceSelect}
-            disabled={isEdit}
           />
-          {!isEdit && (
-            <p style={{ fontSize: 11, color: "#bbb", margin: "5px 0 0 2px" }}>
-              입력하면 자주 쓰는 서비스가 자동완성됩니다
-            </p>
-          )}
+          <p style={{ fontSize: 11, color: "#bbb", margin: "5px 0 0 2px" }}>
+            서비스명 또는 한국어로 검색하면 자동완성됩니다
+          </p>
         </div>
 
         {/* 나머지 텍스트 필드 */}
