@@ -37,25 +37,33 @@ function DayPicker({ value, onChange }) {
 
 // ── ServiceAutocomplete ───────────────────────
 // 서비스명 입력 시 popularServices.json에서 자동완성 목록 표시
+// ↑↓ 화살표 키로 항목 이동, Enter로 선택, Escape로 닫기
 function ServiceAutocomplete({ value, onChange, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
+  const [open,        setOpen]        = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1); // 화살표로 선택 중인 인덱스
+  const wrapRef  = useRef(null);
+  const itemRefs = useRef([]);
 
   const q = value.trim().toLowerCase();
   const suggestions = q.length > 0
     ? popularServices.filter(s => {
         const titleMatch   = s.title.toLowerCase().includes(q);
         const titleKoMatch = (s.titleKo ?? "").toLowerCase().includes(q);
-        // 영문 제목과 완전히 동일한 경우에만 제외 (한국어 입력은 항상 표시)
         const exactEnMatch = s.title.toLowerCase() === q;
         return (titleMatch || titleKoMatch) && !exactEnMatch;
       }).slice(0, 6)
     : [];
 
+  // suggestions가 바뀌면 activeIndex 초기화
+  useEffect(() => { setActiveIndex(-1); }, [suggestions.length]);
+
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
     const handler = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setActiveIndex(-1);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -64,6 +72,30 @@ function ServiceAutocomplete({ value, onChange, onSelect }) {
   const handleSelect = (service) => {
     onSelect(service);
     setOpen(false);
+    setActiveIndex(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!open || suggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex(i => {
+        const next = i < suggestions.length - 1 ? i + 1 : 0;
+        itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+        return next;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex(i => {
+        const next = i > 0 ? i - 1 : suggestions.length - 1;
+        itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+        return next;
+      });
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      handleSelect(suggestions[activeIndex]);
+    }
   };
 
   return (
@@ -73,6 +105,7 @@ function ServiceAutocomplete({ value, onChange, onSelect }) {
         value={value}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
         placeholder="예: Netflix 또는 넷플릭스"
         style={{
           width: "100%", padding: "10px 14px", borderRadius: 12,
@@ -94,17 +127,20 @@ function ServiceAutocomplete({ value, onChange, onSelect }) {
           {suggestions.map((s, i) => (
             <button
               key={s.title}
+              ref={el => itemRefs.current[i] = el}
               type="button"
               onMouseDown={() => handleSelect(s)}
+              onMouseEnter={() => setActiveIndex(i)}
+              onMouseLeave={() => setActiveIndex(-1)}
               style={{
                 width: "100%", display: "flex", alignItems: "center",
                 justifyContent: "space-between", padding: "10px 14px",
-                background: "none", border: "none", cursor: "pointer",
+                background: activeIndex === i ? "#F0EFFE" : "none",
+                border: "none", cursor: "pointer",
                 textAlign: "left", fontFamily: "inherit",
                 borderTop: i > 0 ? "1px solid #F5F5F5" : "none",
+                transition: "background 0.1s",
               }}
-              onMouseEnter={e => e.currentTarget.style.background = "#F8F7FF"}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
             >
               <div>
                 <span style={{ fontSize: 14, color: "#1A1A2E", fontWeight: 500 }}>{s.title}</span>
