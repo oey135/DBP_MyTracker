@@ -99,7 +99,7 @@ export default function ProfileTab({ subscriptions, confirm, onLogout, onWithdra
 
       {/* 지출 순위 */}
       {byPrice.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ marginBottom: 32, paddingLeft: 16, paddingRight: 16 }}>
           <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 12px", color: "#1A1A2E" }}>💸 지출 순위</p>
           {byPrice.map((s, i) => {
             const meta = getServiceMeta(s.title);
