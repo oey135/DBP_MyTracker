@@ -224,7 +224,7 @@ export default function FriendsTab({ confirm }) {
                   <p style={{ fontSize: 12, color: "#aaa", margin: "10px 0 8px" }}>월 {formatPrice(fTotal)} 구독 중</p>
                   {subs.length === 0 ? (
                     <p style={{ fontSize: 13, color: "#ccc", margin: "0 0 12px" }}>구독 중인 서비스가 없습니다</p>
-                  ) : subs.map(s => {
+                  ) : subs.slice(0, 4).map(s => {
                     const meta = getServiceMeta(s.title);
                     return (
                       <div key={s.title} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -236,6 +236,11 @@ export default function FriendsTab({ confirm }) {
                       </div>
                     );
                   })}
+                  {subs.length > 4 && (
+                    <p style={{ fontSize: 12, color: "#bbb", margin: "0 0 8px", textAlign: "center" }}>
+                      외 {subs.length - 4}개
+                    </p>
+                  )}
                   <div style={{ borderTop: "1px solid #F5F5F5", paddingTop: 10, marginTop: 4 }}>
                     <button
                       onClick={() => handleRemove(f.uid, f.user_name)}
