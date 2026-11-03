@@ -4,17 +4,17 @@
 -- 실행: mysql -u root -p mytracker < schema.sql
 -- ─────────────────────────────────────────────
 
-CREATE DATABASE IF NOT EXISTS mytracker
+CREATE DATABASE IF NOT EXISTS bsby7drmskkoscccevjw
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_unicode_ci;
 
-USE mytracker;
+USE bsby7drmskkoscccevjw;
 
 -- ── user ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user (
   uid       INT          NOT NULL AUTO_INCREMENT,
   user_name VARCHAR(20)  NOT NULL,
-  email     VARCHAR(255) NOT NULL,
+  email     VARCHAR(255) NOT NULL,friends
   password  VARCHAR(256) NOT NULL,
   PRIMARY KEY (uid),
   UNIQUE KEY uq_user_name (user_name),

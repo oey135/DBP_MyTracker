@@ -49,7 +49,7 @@ router.post("/", async (req, res) => {
     try {
         // 상대방 uid 조회
         const [[target]] = await pool.query(
-            `SELECT uid FROM user WHERE user_name = ?`,
+            `SELECT uid FROM user WHERE user_name = ? AND deleted_at IS NULL`,
             [user_name],
         );
         if (!target)
