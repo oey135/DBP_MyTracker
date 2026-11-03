@@ -45,17 +45,21 @@ export const getNextBillingDate = (billingDate, cycle = "monthly") => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // y년 m월(0부터)의 결제일. 그 달에 없는 날짜는 말일로 보정한다.
+    // m이 12 이상이어도 JS Date가 연도를 넘겨서 처리한다.
+    const at = (y, m) =>
+        new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
+
     if (cycle === "yearly") {
         const m = getBillingMonth(billingDate) - 1;
-        const at = (y) =>
-            new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
-        const thisYear = at(today.getFullYear());
-        return thisYear >= today ? thisYear : at(today.getFullYear() + 1);
+        const thisYear = at(today.getFullYear(), m);
+        return thisYear >= today ? thisYear : at(today.getFullYear() + 1, m);
     }
 
-    const candidate = new Date(today.getFullYear(), today.getMonth(), day);
-    if (candidate < today) candidate.setMonth(candidate.getMonth() + 1);
-    return candidate;
+    const thisMonth = at(today.getFullYear(), today.getMonth());
+    return thisMonth >= today
+        ? thisMonth
+        : at(today.getFullYear(), today.getMonth() + 1);
 };
 
 export const getDaysUntil = (billingDate, cycle = "monthly") => {
