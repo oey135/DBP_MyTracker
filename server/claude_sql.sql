@@ -3,8 +3,8 @@ USE bsby7drmskkoscccevjw;
 SELECT sub_id, uid, title, category, billing_cycle FROM subscription;
 
 -- 탈퇴한 회원 점검?
-SELECT uid, user_name, email, deleted_at FROM user ORDER BY uid DESC LIMIT 3;
-SELECT uid, title FROM subscription WHERE uid = <탈퇴한 uid>;
+SELECT uid, user_name, email, deleted_at FROM user ORDER BY uid DESC;
+-- SELECT uid, title FROM subscription WHERE uid = ; 
 
 -- 0. 백업 (이미 만들어졌으면 그대로 넘어감)
 CREATE TABLE IF NOT EXISTS subscription_bak AS SELECT * FROM subscription;

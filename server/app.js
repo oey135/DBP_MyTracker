@@ -19,6 +19,8 @@ import subscriptionsRouter from "./routes/subscriptions.js";
 import friendsRouter from "./routes/friends.js";
 import usersRouter from "./routes/users.js";
 
+import pool from "./db.js";
+
 const app = express();
 const PORT = process.env.PORT ?? 4000;
 const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
