@@ -13,6 +13,7 @@ import {
 import { getServiceMeta } from "../constants/serviceMeta";
 
 export default function HomeTab({ subscriptions, onNavigate }) {
+    const active = subscriptions.filter((s) => s.status === "subscribed");
     const monthly = active.reduce((sum, s) => sum + monthlyCost(s), 0);
     const yearly = active.reduce(
         (sum, s) =>
