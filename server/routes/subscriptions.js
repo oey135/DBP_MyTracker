@@ -13,6 +13,7 @@ import { Router } from "express";
 import pool from "../db.js";
 
 const router = Router();
+const VISIBILITY = ["private", "friends"];
 
 const DAYS_2000 = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 2000년은 윤년
 
@@ -37,11 +38,10 @@ router.get("/", async (req, res) => {
     const uid = req.user.uid;
     try {
         const [rows] = await pool.query(
-            `SELECT uid, title, price, billing_cycle,
-              start_date, billing_date, memo, status
-              FROM subscription
-              WHERE uid = ?
-              ORDER BY status = 'cancelled', title`,
+            `SELECT sub_id, uid, title, price, billing_cycle, visibility, start_date, billing_date, memo, status
+            FROM subscription
+            WHERE uid = ?
+            ORDER BY status = 'cancelled', title`,
             [uid],
         );
         res.json(rows);
@@ -61,6 +61,7 @@ router.post("/", async (req, res) => {
         start_date = null,
         billing_date,
         billing_cycle = "monthly",
+        visibility = "private",
         memo = "",
         status = "subscribed",
     } = req.body;
@@ -75,15 +76,21 @@ router.post("/", async (req, res) => {
     const billingErr = checkBilling(billing_cycle, billing_date);
     if (billingErr) return res.status(400).json({ error: billingErr });
 
+    if (!VISIBILITY.includes(visibility))
+        return res
+            .status(400)
+            .json({ error: "visibility는 private 또는 friends여야 합니다" });
+
     try {
         await pool.query(
-            `INSERT INTO subscription (uid, title, price, billing_cycle, start_date, billing_date, memo, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO subscription (uid, title, price, billing_cycle, visibility, start_date, billing_date, memo, status)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 uid,
                 title,
                 price,
                 billing_cycle,
+                visibility,
                 start_date,
                 billing_date,
                 memo,
@@ -94,10 +101,11 @@ router.post("/", async (req, res) => {
             uid,
             title,
             price,
-            billing_cycle,
             start_date,
             billing_date,
+            billing_cycle,
             memo,
+            visibility,
             status,
         });
     } catch (err) {
@@ -117,6 +125,7 @@ router.put("/:title", async (req, res) => {
         "title",
         "price",
         "billing_cycle",
+        "visibility",
         "start_date",
         "billing_date",
         "memo",
@@ -127,19 +136,36 @@ router.put("/:title", async (req, res) => {
     if (fields.length === 0)
         return res.status(400).json({ error: "변경할 필드가 없습니다" });
 
+    if (
+        req.body.visibility !== undefined &&
+        !VISIBILITY.includes(req.body.visibility)
+    )
+        return res
+            .status(400)
+            .json({ error: "visibility는 private 또는 friends여야 합니다" });
+
+    if (req.body.price !== undefined && Number(req.body.price) < 0)
+        return res.status(400).json({ error: "price는 0 이상이어야 합니다" });
+
     // 주기나 결제일이 바뀌면 저장된 값과 합쳐서 조합 검증
     if (fields.includes("billing_cycle") || fields.includes("billing_date")) {
-        const [[cur]] = await pool.query(
-            `SELECT billing_cycle, billing_date FROM subscription WHERE uid = ? AND title = ?`,
-            [uid, oldTitle],
-        );
-        if (!cur)
-            return res.status(404).json({ error: "구독을 찾을 수 없습니다" });
-        const billingErr = checkBilling(
-            req.body.billing_cycle ?? cur.billing_cycle,
-            req.body.billing_date ?? cur.billing_date,
-        );
-        if (billingErr) return res.status(400).json({ error: billingErr });
+        try {
+            const [[cur]] = await pool.query(
+                `SELECT billing_cycle, billing_date FROM subscription WHERE uid = ? AND title = ?`,
+                [uid, oldTitle],
+            );
+            if (!cur)
+                return res
+                    .status(404)
+                    .json({ error: "구독을 찾을 수 없습니다" });
+            const billingErr = checkBilling(
+                req.body.billing_cycle ?? cur.billing_cycle,
+                req.body.billing_date ?? cur.billing_date,
+            );
+            if (billingErr) return res.status(400).json({ error: billingErr });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
     }
 
     // 복구(status: subscribed)일 때 start_date가 없으면 오늘로 자동 설정
@@ -196,23 +222,23 @@ router.get("/friend/:uid", async (req, res) => {
     const myUid = req.user.uid;
     const friendUid = Number(req.params.uid);
 
-    // 친구 관계 확인 (accepted인 경우만 허용)
     try {
+        // 1) 친구 관계 확인 (accepted인 경우만 허용)
         const [[rel]] = await pool.query(
-            `SELECT title, price, billing_cycle, billing_date, memo
-              FROM subscription
-              WHERE uid = ? AND status = 'subscribed'
-              ORDER BY title`,
+            `SELECT 1 FROM friends
+             WHERE status = 'accepted'
+               AND ((sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?))`,
             [myUid, friendUid, friendUid, myUid],
         );
         if (!rel)
             return res.status(403).json({ error: "친구 관계가 아닙니다" });
 
+        // 2) 친구가 공개한 구독만 조회
         const [rows] = await pool.query(
-            `SELECT title, price, billing_date, memo
-       FROM subscription
-       WHERE uid = ? AND status = 'subscribed'
-       ORDER BY title`,
+            `SELECT title, price, billing_cycle, billing_date, memo
+             FROM subscription
+             WHERE uid = ? AND status = 'subscribed' AND visibility = 'friends'
+             ORDER BY title`,
             [friendUid],
         );
         res.json(rows);

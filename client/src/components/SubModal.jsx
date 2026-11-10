@@ -259,6 +259,7 @@ const EMPTY_FORM = {
     billing_cycle: "monthly",
     memo: "",
     status: "subscribed",
+    visibility: "private",
 };
 
 const NON_TITLE_FIELDS = [
@@ -613,6 +614,62 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
                             </button>
                         ))}
                     </div>
+                </div>
+
+                {/* 공개 범위 */}
+                <div style={{ marginBottom: 20 }}>
+                    <label
+                        style={{
+                            fontSize: 13,
+                            color: "#666",
+                            display: "block",
+                            marginBottom: 6,
+                        }}
+                    >
+                        공개 범위
+                    </label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        {[
+                            ["private", "비공개"],
+                            ["friends", "친구 공개"],
+                        ].map(([val, label]) => (
+                            <button
+                                key={val}
+                                type="button"
+                                onClick={() => set("visibility", val)}
+                                style={{
+                                    flex: 1,
+                                    padding: "10px",
+                                    borderRadius: 12,
+                                    fontSize: 14,
+                                    cursor: "pointer",
+                                    background:
+                                        form.visibility === val
+                                            ? "#7F77DD"
+                                            : "#F5F5F5",
+                                    color:
+                                        form.visibility === val
+                                            ? "#fff"
+                                            : "#666",
+                                    border: "none",
+                                    fontWeight:
+                                        form.visibility === val ? 600 : 400,
+                                    fontFamily: "inherit",
+                                }}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    <p
+                        style={{
+                            fontSize: 11,
+                            color: "#bbb",
+                            margin: "6px 0 0",
+                        }}
+                    >
+                        친구 공개로 설정한 구독만 친구가 볼 수 있습니다
+                    </p>
                 </div>
 
                 {error && (

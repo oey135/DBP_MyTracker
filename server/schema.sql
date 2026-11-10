@@ -1,70 +1,77 @@
 -- ─────────────────────────────────────────────
--- schema.sql  —  MyTracker DB 초기화
--- MySQL 8.0+
--- 실행: mysql -u root -p mytracker < schema.sql
+-- schema.sql  —  MyTracker DB 스키마 (원격 Clever Cloud DB 기준, MySQL 8.0+)
+-- 새 DB에 처음 만들 때 사용. 이미 운영 중인 원격 DB에는 실행하지 말 것 (이미 적용됨).
+-- 실행 전: USE <DB이름>;  (원격: bsby7drmskkoscccevjw)
 -- ─────────────────────────────────────────────
-
-CREATE DATABASE IF NOT EXISTS bsby7drmskkoscccevjw
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
 
 USE bsby7drmskkoscccevjw;
 
--- ── user ──────────────────────────────────────
-CREATE TABLE IF NOT EXISTS user (
-  uid       INT          NOT NULL AUTO_INCREMENT,
-  user_name VARCHAR(20)  NOT NULL,
-  email     VARCHAR(255) NOT NULL,friends
-  password  VARCHAR(256) NOT NULL,
-  PRIMARY KEY (uid),
-  UNIQUE KEY uq_user_name (user_name),
-  UNIQUE KEY uq_email     (email)
-);
+CREATE TABLE `user` (
+  `uid`        int NOT NULL AUTO_INCREMENT,
+  `user_name`  varchar(20)  NOT NULL,
+  `email`      varchar(255) NOT NULL,
+  `password`   varchar(256) NOT NULL,
+  `deleted_at` datetime DEFAULT NULL,            -- 탈퇴 시각 (소프트 삭제)
+  PRIMARY KEY (`uid`),
+  UNIQUE KEY `uq_user_name` (`user_name`),
+  UNIQUE KEY `uq_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- ── friends ───────────────────────────────────
-CREATE TABLE IF NOT EXISTS friends (
-  sender   INT NOT NULL,
-  receiver INT NOT NULL,
-  status   ENUM('pending', 'accepted', 'rejected') NOT NULL DEFAULT 'pending',
-  PRIMARY KEY (sender, receiver),
-  CONSTRAINT chk_no_self   CHECK (sender <> receiver),
-  CONSTRAINT fk_sender     FOREIGN KEY (sender)   REFERENCES user(uid) ON DELETE CASCADE,
-  CONSTRAINT fk_receiver   FOREIGN KEY (receiver) REFERENCES user(uid) ON DELETE CASCADE
-);
+CREATE TABLE `friends` (
+  `sender`   int NOT NULL,                       -- 요청한 사람
+  `receiver` int NOT NULL,                       -- 요청받은 사람
+  `status`   enum('pending','accepted','rejected') NOT NULL DEFAULT 'pending',
+  PRIMARY KEY (`sender`, `receiver`),
+  KEY `fk_receiver` (`receiver`),
+  CONSTRAINT `fk_sender`   FOREIGN KEY (`sender`)   REFERENCES `user` (`uid`) ON DELETE CASCADE,
+  CONSTRAINT `fk_receiver` FOREIGN KEY (`receiver`) REFERENCES `user` (`uid`) ON DELETE CASCADE,
+  CONSTRAINT `chk_no_self` CHECK (`sender` <> `receiver`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- ── subscription ──────────────────────────────
--- billing_date: DATE 타입이지만 일(day)만 사용
---   "2000-01-DD" 형태로 저장 — 연·월은 더미값
-CREATE TABLE IF NOT EXISTS subscription (
-  uid          INT          NOT NULL,
-  title        VARCHAR(50)  NOT NULL,
-  price        INT          NOT NULL,
-  start_date   DATE,
-  billing_date DATE         NOT NULL COMMENT '일자만 사용 (2000-01-DD)',
-  memo         TEXT,
-  status       ENUM('subscribed', 'cancelled') DEFAULT 'subscribed',
-  PRIMARY KEY (uid, title),
-  CONSTRAINT chk_price      CHECK (price >= 0),
-  CONSTRAINT fk_sub_user    FOREIGN KEY (uid) REFERENCES user(uid) ON DELETE CASCADE
-);
+CREATE TABLE `subscription` (
+  `sub_id`        int NOT NULL AUTO_INCREMENT,
+  `uid`           int NOT NULL,                  -- 소유자(결제자)
+  `title`         varchar(50) NOT NULL,
+  `category`      enum('ott','music','cloud','productivity','game','etc') NOT NULL DEFAULT 'etc',
+  `price`         int NOT NULL,                  -- monthly: 월 금액, yearly: 연 금액
+  `billing_cycle` enum('monthly','yearly') NOT NULL DEFAULT 'monthly',
+  `start_date`    date DEFAULT NULL,
+  `billing_date`  date NOT NULL
+      COMMENT '기준연도 2000 고정. monthly: 2000-01-DD(일자만), yearly: 2000-MM-DD(월·일)',
+  `memo`          text,
+  `status`        enum('subscribed','cancelled') DEFAULT 'subscribed',
+  `visibility`    enum('private','friends') NOT NULL DEFAULT 'private',
+  `is_shared`     tinyint(1) NOT NULL DEFAULT 0,
+  `alert_days_before` int DEFAULT NULL,
+  PRIMARY KEY (`sub_id`),
+  UNIQUE KEY `uq_uid_title` (`uid`, `title`),
+  CONSTRAINT `fk_sub_user` FOREIGN KEY (`uid`) REFERENCES `user` (`uid`) ON DELETE CASCADE,
+  CONSTRAINT `chk_price` CHECK (`price` >= 0),
+  CONSTRAINT `chk_billing_year` CHECK (YEAR(`billing_date`) = 2000),
+  CONSTRAINT `chk_billing_monthly` CHECK (`billing_cycle` = 'yearly' OR MONTH(`billing_date`) = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- ── 샘플 데이터 ───────────────────────────────
-INSERT IGNORE INTO user (uid, user_name, email, password) VALUES
-  (1, 'me',     'me@example.com',     '$2b$10$placeholder_hash'),
-  (2, 'jiyeon', 'jiyeon@example.com', '$2b$10$placeholder_hash'),
-  (3, 'minjun', 'minjun@example.com', '$2b$10$placeholder_hash'),
-  (4, 'sora',   'sora@example.com',   '$2b$10$placeholder_hash');
+CREATE TABLE `subscription_member` (             -- 공유 구독 참여자·분담금
+  `sub_id`       int NOT NULL,
+  `uid`          int NOT NULL,
+  `share_amount` int NOT NULL,
+  PRIMARY KEY (`sub_id`, `uid`),
+  CONSTRAINT `fk_sm_sub`  FOREIGN KEY (`sub_id`) REFERENCES `subscription` (`sub_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sm_user` FOREIGN KEY (`uid`)    REFERENCES `user` (`uid`),
+  CONSTRAINT `chk_share`  CHECK (`share_amount` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-INSERT IGNORE INTO friends (sender, receiver, status) VALUES
-  (1, 2, 'accepted'),
-  (3, 1, 'accepted'),
-  (4, 1, 'pending');
-
-INSERT IGNORE INTO subscription (uid, title, price, start_date, billing_date, memo, status) VALUES
-  (1, 'Netflix',            17000, '2024-01-15', '2000-01-15', '가족 계정',    'subscribed'),
-  (1, 'Spotify',            10900, '2023-08-01', '2000-01-01', '',             'subscribed'),
-  (1, 'YouTube Premium',    14900, '2024-03-10', '2000-01-10', '광고 없이 보기','subscribed'),
-  (1, 'Toss Plus',           4900, '2025-01-01', '2000-01-01', '',             'cancelled'),
-  (2, 'Netflix',            17000, '2024-02-01', '2000-01-01', '',             'subscribed'),
-  (2, 'Coupang Rocket Wow',  7890, '2023-11-01', '2000-01-01', '',             'subscribed'),
-  (3, 'Apple One',          25000, '2024-05-01', '2000-01-01', '',             'subscribed');
+CREATE TABLE `payment` (                         -- 결제 이력 + 정산
+  `payment_id`    int NOT NULL AUTO_INCREMENT,
+  `sub_id`        int NOT NULL,
+  `uid`           int NOT NULL,                  -- 낸 사람
+  `pay_date`      date NOT NULL,
+  `amount`        int NOT NULL,
+  `settle_status` enum('not_required','pending','settled') NOT NULL DEFAULT 'not_required',
+  `settled_at`    datetime DEFAULT NULL,
+  PRIMARY KEY (`payment_id`),
+  KEY `idx_payment_uid_date` (`uid`, `pay_date`),
+  CONSTRAINT `fk_pay_sub`  FOREIGN KEY (`sub_id`) REFERENCES `subscription` (`sub_id`),
+  CONSTRAINT `fk_pay_user` FOREIGN KEY (`uid`)    REFERENCES `user` (`uid`),
+  CONSTRAINT `chk_amount`  CHECK (`amount` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -18,6 +18,7 @@ import "dotenv/config";
 import subscriptionsRouter from "./routes/subscriptions.js";
 import friendsRouter from "./routes/friends.js";
 import usersRouter from "./routes/users.js";
+import paymentsRouter from "./routes/payments.js";
 
 import pool from "./db.js";
 
@@ -80,6 +81,7 @@ app.use("/api/auth", usersRouter);
 app.use("/api/users", authenticate, usersRouter);
 app.use("/api/subscriptions", authenticate, subscriptionsRouter);
 app.use("/api/friends", authenticate, friendsRouter);
+app.use("/api/payments", authenticate, paymentsRouter);
 
 // ── 헬스체크 ──────────────────────────────────
 app.get("/health", (_, res) => res.json({ status: "ok" }));
