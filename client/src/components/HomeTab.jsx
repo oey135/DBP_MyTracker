@@ -144,7 +144,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                             const meta = getServiceMeta(s.title);
                             return (
                                 <div
-                                    key={s.title}
+                                    key={s.sub_id ?? s.title}
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
@@ -261,7 +261,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                         const meta = getServiceMeta(s.title);
                         return (
                             <div
-                                key={s.title}
+                                key={s.sub_id ?? s.title}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",

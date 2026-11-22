@@ -212,7 +212,7 @@ function DayDetail({ day, month, active, cancelled, total }) {
       {active.map(s => {
         const meta = getServiceMeta(s.title);
         return (
-          <div key={s.title} style={{
+          <div key={s.sub_id ?? s.title} style={{
             display: "flex", alignItems: "center", gap: 12,
             background: "#fff", border: "1px solid #F0F0F0",
             borderRadius: 14, padding: "12px 14px", marginBottom: 8,
@@ -242,7 +242,7 @@ function DayDetail({ day, month, active, cancelled, total }) {
           {cancelled.map(s => {
             const meta = getServiceMeta(s.title);
             return (
-              <div key={s.title} style={{
+              <div key={s.sub_id ?? s.title} style={{
                 display: "flex", alignItems: "center", gap: 12,
                 background: "#F9F9F9", border: "1px dashed #E0E0E0",
                 borderRadius: 14, padding: "12px 14px", marginBottom: 8, opacity: 0.7,
@@ -312,7 +312,7 @@ function MonthList({ subscriptions, viewYear, viewMonth, daysInMonth }) {
             {active.map(s => {
               const meta = getServiceMeta(s.title);
               return (
-                <div key={s.title} style={{
+                <div key={s.sub_id ?? s.title} style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "8px 10px", borderRadius: 12,
                   background: "#FAFAFA", marginBottom: 4,
@@ -327,7 +327,7 @@ function MonthList({ subscriptions, viewYear, viewMonth, daysInMonth }) {
             {cancelled.map(s => {
               const meta = getServiceMeta(s.title);
               return (
-                <div key={s.title} style={{
+                <div key={s.sub_id ?? s.title} style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "8px 10px", borderRadius: 12,
                   background: "#F5F5F5", marginBottom: 4, opacity: 0.6,

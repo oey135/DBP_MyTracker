@@ -219,7 +219,7 @@ export default function ProfileTab({
                             (monthlyCost(s) / monthly) * 100,
                         );
                         return (
-                            <div key={s.title} style={{ marginBottom: 12 }}>
+                            <div key={s.sub_id ?? s.title} style={{ marginBottom: 12 }}>
                                 <div
                                     style={{
                                         display: "flex",

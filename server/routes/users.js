@@ -116,8 +116,8 @@ router.get("/me", async (req, res) => {
 
 // ── 회원 탈퇴 ─────────────────────────────────
 // DELETE /api/users/me  (인증 필요)
-// user 삭제 시 FK CASCADE로 subscription, friends 모두 삭제됨
-// DELETE /api/users/me — 소프트 삭제 (구독·결제 이력은 보존, 친구 관계는 삭제)
+// 소프트 삭제: user_name·email → 'deleted_{uid}', password → NULL
+// 구독·결제 이력은 보존, 친구 관계는 삭제
 router.delete("/me", async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "인증이 필요합니다" });
     const uid = req.user.uid;
@@ -130,8 +130,8 @@ router.delete("/me", async (req, res) => {
             `UPDATE user
        SET deleted_at = NOW(),
            user_name  = CONCAT('deleted_', uid),
-           email      = CONCAT('deleted_', uid, '@deleted.invalid'),
-           password   = ''
+           email      = CONCAT('deleted_', uid),
+           password   = NULL
        WHERE uid = ? AND deleted_at IS NULL`,
             [uid],
         );

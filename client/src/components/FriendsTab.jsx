@@ -479,7 +479,7 @@ export default function FriendsTab({ confirm }) {
                                                 );
                                                 return (
                                                     <div
-                                                        key={s.title}
+                                                        key={s.sub_id ?? s.title}
                                                         style={{
                                                             display: "flex",
                                                             alignItems:

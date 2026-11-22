@@ -54,15 +54,28 @@ export const getMySubscriptions = (_uid) =>
 export const addSubscription = (data) =>
   request("POST", "/api/subscriptions", data);
 
-/** 구독 수정 (상태 변경·복구 포함) */
-export const updateSubscription = (_uid, title, updates) =>
-  request("PUT", `/api/subscriptions/${encodeURIComponent(title)}`, updates);
+/** 구독 수정 (상태 변경·복구 포함) — sub_id 기준 */
+export const updateSubscription = (subId, updates) =>
+  request("PUT", `/api/subscriptions/${subId}`, updates);
 
+/** 구독 삭제 — 결제 기록이 있으면 서버가 해지로 대체
+ *  반환: { result: "deleted" | "cancelled" } */
+export const deleteSubscription = (subId) =>
+  request("DELETE", `/api/subscriptions/${subId}`);
 
+// ── payments ──────────────────────────────────
 
-/** 구독 삭제 */
-export const deleteSubscription = (_uid, title) =>
-  request("DELETE", `/api/subscriptions/${encodeURIComponent(title)}`);
+/** 결제 기록 추가 { sub_id, due_date?, paid_at?, amount? } */
+export const addPayment = (data) =>
+  request("POST", "/api/payments", data);
+
+/** 내 결제 이력 (year 생략 시 전체) */
+export const getPayments = (year) =>
+  request("GET", `/api/payments${year ? `?year=${year}` : ""}`);
+
+/** 결제 기록 삭제 */
+export const deletePayment = (paymentId) =>
+  request("DELETE", `/api/payments/${paymentId}`);
 
 /** 친구 구독 목록 (subscribed만) */
 export const getFriendSubscriptions = (uid) =>

@@ -82,11 +82,11 @@ export const formatPrice = (p) => p.toLocaleString("ko-KR") + "원";
 /**
  * 특정 구독이 주어진 year/month에 결제 대상인지 판별
  *
- * subscribed : start_date ≤ 해당 달  (상한 없음)
- * cancelled  : start_date ≤ 해당 달 ≤ 현재 달
- *              (해지됐으므로 미래 달에는 표시 안 함)
+ * start_date ≤ 해당 달 이어야 하고,
+ * end_date가 있으면 해당 달 ≤ end_date의 달 (해지한 달까지만 표시)
+ * end_date 없이 cancelled인 예전 데이터는 현재 달까지만 표시
  *
- * 복구 시 start_date 를 오늘로 갱신 → 복구한 달부터 다시 포함
+ * 복구 시 서버가 start_date를 오늘로 갱신 → 복구한 달부터 다시 포함
  */
 export const wasActiveInMonth = (sub, year, month) => {
     if (!sub.start_date) return false;
@@ -96,20 +96,22 @@ export const wasActiveInMonth = (sub, year, month) => {
     )
         return false;
 
-    const parts = sub.start_date.split("-");
-    const startY = parseInt(parts[0]);
-    const startM = parseInt(parts[1]) - 1; // 0-indexed
+    const [startY, startM] = sub.start_date.split("-").map(Number);
+    // 시작 전 달이면 제외 (month는 0부터)
+    if (year < startY || (year === startY && month < startM - 1)) return false;
 
-    // 시작 전 달이면 제외
-    if (year < startY || (year === startY && month < startM)) return false;
-
-    if (sub.status === "cancelled") {
-        // 현재 달 이후 미래는 표시 안 함
+    let endY = null,
+        endM = null;
+    if (sub.end_date) {
+        [endY, endM] = sub.end_date.split("-").map(Number);
+        endM -= 1;
+    } else if (sub.status === "cancelled") {
         const now = new Date();
-        const nowY = now.getFullYear();
-        const nowM = now.getMonth();
-        if (year > nowY || (year === nowY && month > nowM)) return false;
+        endY = now.getFullYear();
+        endM = now.getMonth();
     }
+    if (endY !== null && (year > endY || (year === endY && month > endM)))
+        return false;
 
     return true;
 };

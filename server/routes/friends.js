@@ -3,7 +3,8 @@
 //
 // GET    /api/friends                 내 친구 목록 (상태 포함)
 // POST   /api/friends                 친구 요청 보내기
-// PUT    /api/friends/:senderUid      요청 수락 / 거절
+// PUT    /api/friends/:senderUid      요청 수락 / 거절 (거절은 status = rejected)
+// DELETE /api/friends/:targetUid      보낸 요청 취소 / 친구 삭제
 // ─────────────────────────────────────────────
 
 import { Router } from "express";
@@ -25,7 +26,9 @@ router.get("/", async (req, res) => {
             (f.sender = ?) AS isSender
             FROM friends f
             JOIN user u ON u.uid = IF(f.sender = ?, f.receiver, f.sender)
-            WHERE f.sender = ? OR f.receiver = ?
+            WHERE (f.sender = ? OR f.receiver = ?)
+              AND f.status <> 'rejected'
+              AND u.deleted_at IS NULL
             ORDER BY f.status, u.user_name`,
             [uid, uid, uid, uid],
         );
@@ -59,19 +62,28 @@ router.post("/", async (req, res) => {
                 .status(400)
                 .json({ error: "자기 자신에게 요청할 수 없습니다" });
 
-        // 이미 요청/관계가 있는지 확인
+        // 이미 요청/관계가 있는지 확인 (역방향 포함)
         const [[exists]] = await pool.query(
-            `SELECT 1 FROM friends
+            `SELECT status FROM friends
        WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)`,
             [senderUid, target.uid, target.uid, senderUid],
         );
-        if (exists)
+        if (exists && exists.status !== "rejected")
             return res.status(409).json({ error: "이미 요청이 존재합니다" });
 
-        await pool.query(
-            `INSERT INTO friends (sender, receiver, status) VALUES (?, ?, 'pending')`,
-            [senderUid, target.uid],
-        );
+        if (exists) {
+            // 거절된 요청은 기록을 재사용해 새 요청으로 바꾼다 (uq_friends_pair)
+            await pool.query(
+                `UPDATE friends SET sender = ?, receiver = ?, status = 'pending'
+         WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)`,
+                [senderUid, target.uid, senderUid, target.uid, target.uid, senderUid],
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO friends (sender, receiver, status) VALUES (?, ?, 'pending')`,
+                [senderUid, target.uid],
+            );
+        }
         res.status(201).json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -103,11 +115,16 @@ router.put("/:senderUid", async (req, res) => {
                     .status(404)
                     .json({ error: "요청을 찾을 수 없습니다" });
         } else {
-            // reject → 행 삭제
-            await pool.query(
-                `DELETE FROM friends WHERE sender = ? AND receiver = ?`,
+            // reject → 행은 남기고 상태만 rejected (요청 이력 보존)
+            const [result] = await pool.query(
+                `UPDATE friends SET status = 'rejected'
+         WHERE sender = ? AND receiver = ? AND status = 'pending'`,
                 [senderUid, receiverUid],
             );
+            if (result.affectedRows === 0)
+                return res
+                    .status(404)
+                    .json({ error: "요청을 찾을 수 없습니다" });
         }
         res.json({ success: true });
     } catch (err) {
@@ -124,8 +141,9 @@ router.delete("/:targetUid", async (req, res) => {
     try {
         const [result] = await pool.query(
             `DELETE FROM friends
-       WHERE (sender = ? AND receiver = ?)
-          OR (sender = ? AND receiver = ?)`,
+       WHERE ((sender = ? AND receiver = ?)
+          OR (sender = ? AND receiver = ?))
+         AND status <> 'rejected'`,
             [myUid, targetUid, targetUid, myUid],
         );
         if (result.affectedRows === 0)

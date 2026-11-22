@@ -200,7 +200,7 @@ export default function SubscriptionsTab({
                 ) : (
                     filtered.map((s) => (
                         <SubscriptionCard
-                            key={s.title}
+                            key={s.sub_id ?? s.title}
                             sub={s}
                             onEdit={onEdit}
                             onDelete={onDelete}
@@ -353,7 +353,7 @@ function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
                         <div style={{ flexShrink: 0 }}>
                             {isCancelled ? (
                                 <button
-                                    onClick={() => onRestore(s.title)}
+                                    onClick={() => onRestore(s)}
                                     style={{
                                         fontSize: 11,
                                         padding: "4px 10px",
@@ -384,7 +384,7 @@ function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
                                         수정
                                     </button>
                                     <button
-                                        onClick={() => onDelete(s.title)}
+                                        onClick={() => onDelete(s)}
                                         style={{
                                             fontSize: 11,
                                             padding: "4px 10px",
