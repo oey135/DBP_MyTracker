@@ -1,7 +1,6 @@
 -- =====================================================================
 -- MyTracker DB 샘플 (스키마 + 샘플 데이터)
 --   스키마는 server/myTracker.sql 과 동일하고, 그 뒤에 샘플 데이터를 넣는다.
---   ERD(docs/ERD.md)는 이 파일로 만든 DB 기준이다.
 -- 대상: MySQL 8.0.16+
 --
 -- 실행: mysql -u <user> -p < server/myTracker_sample.sql
