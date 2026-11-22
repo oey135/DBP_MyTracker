@@ -8,7 +8,7 @@
 //   DB_PORT=3306
 //   DB_USER=root
 //   DB_PASSWORD=yourpassword
-//   DB_NAME=myTracker
+//   DB_NAME=mytracker
 // ─────────────────────────────────────────────
 
 import mysql from "mysql2/promise";
@@ -19,7 +19,7 @@ const pool = mysql.createPool({
   port:               Number(process.env.DB_PORT ?? 3306),
   user:               process.env.DB_USER     ?? "root",
   password:           process.env.DB_PASSWORD ?? "",
-  database:           process.env.DB_NAME     ?? "myTracker",
+  database:           process.env.DB_NAME     ?? "mytracker",
   charset:            "utf8mb4",
   waitForConnections: true,
   connectionLimit:    10,
