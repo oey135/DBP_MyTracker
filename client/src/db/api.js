@@ -54,15 +54,28 @@ export const getMySubscriptions = (_uid) =>
 export const addSubscription = (data) =>
   request("POST", "/api/subscriptions", data);
 
-/** 구독 수정 (상태 변경·복구 포함) */
-export const updateSubscription = (_uid, title, updates) =>
-  request("PUT", `/api/subscriptions/${encodeURIComponent(title)}`, updates);
+/** 구독 수정 (상태 변경·복구 포함) — sub_id 기준 */
+export const updateSubscription = (subId, updates) =>
+  request("PUT", `/api/subscriptions/${subId}`, updates);
 
+/** 구독 삭제 — 결제 기록이 있으면 서버가 해지로 대체
+ *  반환: { result: "deleted" | "cancelled" } */
+export const deleteSubscription = (subId) =>
+  request("DELETE", `/api/subscriptions/${subId}`);
 
+// ── payments ──────────────────────────────────
 
-/** 구독 삭제 */
-export const deleteSubscription = (_uid, title) =>
-  request("DELETE", `/api/subscriptions/${encodeURIComponent(title)}`);
+/** 결제 기록 추가 { sub_id, due_date?, paid_at?, amount? } */
+export const addPayment = (data) =>
+  request("POST", "/api/payments", data);
+
+/** 내 결제 이력 (year 생략 시 전체) */
+export const getPayments = (year) =>
+  request("GET", `/api/payments${year ? `?year=${year}` : ""}`);
+
+/** 결제 기록 삭제 */
+export const deletePayment = (paymentId) =>
+  request("DELETE", `/api/payments/${paymentId}`);
 
 /** 친구 구독 목록 (subscribed만) */
 export const getFriendSubscriptions = (uid) =>
@@ -74,9 +87,13 @@ export const getFriendSubscriptions = (uid) =>
 export const getFriends = (_uid) =>
   request("GET", "/api/friends");
 
-/** 친구 요청 보내기 */
-export const sendFriendRequest = (_sender, user_name) =>
-  request("POST", "/api/friends", { user_name });
+/** 이메일로 사용자 검색 → { uid, user_name, relation } */
+export const searchUserByEmail = (email) =>
+  request("GET", `/api/friends/search?email=${encodeURIComponent(email)}`);
+
+/** 친구 요청 보내기 (이메일 기준) */
+export const sendFriendRequest = (email) =>
+  request("POST", "/api/friends", { email });
 
 /** 요청 수락 / 거절 */
 export const respondFriendRequest = (senderUid, _receiverUid, action) =>
@@ -89,6 +106,61 @@ export const cancelFriendRequest = (receiverUid) =>
 /** 친구 삭제 */
 export const removeFriend = (friendUid) =>
   request("DELETE", `/api/friends/${friendUid}`);
+
+// ── stats (지출 분석) ─────────────────────────
+
+/** 이번 달·지난달 비교, 월/연 예상, 결제 주기별 비교 (ym: "YYYY-MM") */
+export const getStatsOverview = (ym) =>
+  request("GET", `/api/stats/overview${ym ? `?ym=${ym}` : ""}`);
+
+/** 월별 예정·실제 지출 추이 */
+export const getStatsMonthly = (year) =>
+  request("GET", `/api/stats/monthly?year=${year}`);
+
+/** 서비스별·카테고리별 지출 */
+export const getStatsBreakdown = (year) =>
+  request("GET", `/api/stats/breakdown?year=${year}`);
+
+/** 향후 N개월 예상 지출 */
+export const getStatsForecast = (months = 6) =>
+  request("GET", `/api/stats/forecast?months=${months}`);
+
+// ── shared (공유 구독) ─────────────────────────
+
+/** 나에게 온 공유 초대 */
+export const getSharedInvites = () => request("GET", "/api/shared/invites");
+
+/** 초대 수락/거절 (action: "accept" | "reject") */
+export const respondSharedInvite = (subId, action) =>
+  request("POST", `/api/shared/${subId}/respond`, { action });
+
+/** 공유 구독 상세 (참여자·분담액) */
+export const getShared = (subId) => request("GET", `/api/shared/${subId}`);
+
+/** 친구 초대 */
+export const inviteToShared = (subId, uid) =>
+  request("POST", `/api/shared/${subId}/members`, { uid });
+
+/** 참여자 내보내기 / 나가기 (uid가 나 자신이면 나가기) */
+export const removeSharedMember = (subId, uid) =>
+  request("DELETE", `/api/shared/${subId}/members/${uid}`);
+
+/** 분담 방식 변경 (custom이면 shares: [{ uid, amount }]) */
+export const updateSharedSplit = (subId, split_type, shares) =>
+  request("PUT", `/api/shared/${subId}/split`, { split_type, shares });
+
+/** 해당 월 회차 정산 현황 (ym: "YYYY-MM") */
+export const getSettlements = (subId, ym) =>
+  request("GET", `/api/shared/${subId}/settlements${ym ? `?ym=${ym}` : ""}`);
+
+/** 정산 완료/취소 기록 */
+export const setSettlement = (subId, uid, due_date, paid) =>
+  request("PUT", `/api/shared/${subId}/settlements`, { uid, due_date, paid });
+
+// ── alerts ────────────────────────────────────
+
+/** 알림 모아보기: 결제 임박, 미정산, 공유 초대·친구 요청 수 */
+export const getAlerts = () => request("GET", "/api/alerts");
 
 // ── users ─────────────────────────────────────
 

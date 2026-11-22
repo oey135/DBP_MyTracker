@@ -13,8 +13,8 @@ import {
     DAYS_2000,
     formatBillingDay,
 } from "../utils/subscriptionUtils";
-import { CURRENT_UID } from "../constants/serviceMeta";
 import popularServices from "../constants/popularServices.json";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 // ── DayPicker ────────────────────────────────
 const pillStyle = (on, w) => ({
@@ -260,7 +260,10 @@ const EMPTY_FORM = {
     memo: "",
     status: "subscribed",
     visibility: "private",
+    category: "etc",
+    notify_days_before: "",
 };
+
 
 const NON_TITLE_FIELDS = [
     {
@@ -276,7 +279,19 @@ const NON_TITLE_FIELDS = [
 export default function SubModal({ initial, existingTitles, onSave, onClose }) {
     const isEdit = !!initial;
     const [form, setForm] = useState(
-        initial ? { ...initial, price: String(initial.price) } : EMPTY_FORM,
+        initial
+            ? {
+                  ...EMPTY_FORM,
+                  ...initial,
+                  price: String(initial.price),
+                  start_date: initial.start_date ?? "",
+                  memo: initial.memo ?? "",
+                  notify_days_before:
+                      initial.notify_days_before == null
+                          ? ""
+                          : String(initial.notify_days_before),
+              }
+            : EMPTY_FORM,
     );
     const [error, setError] = useState("");
 
@@ -325,11 +340,14 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
             ...prev,
             title: service.title,
             price: String(service.price),
+            category: service.category ?? prev.category,
         }));
         setError("");
     };
 
-    const handleSave = () => {
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
         if (!form.title.trim()) return setError("서비스명을 입력하세요");
         if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0)
             return setError("올바른 금액을 입력하세요");
@@ -337,7 +355,30 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
         if (!isEdit && existingTitles.includes(form.title.trim()))
             return setError("이미 등록된 서비스입니다");
 
-        onSave({ ...form, price: Number(form.price), uid: CURRENT_UID });
+        const payload = {
+            title: form.title.trim(),
+            category: form.category,
+            price: Number(form.price),
+            billing_cycle: form.billing_cycle,
+            billing_date: form.billing_date,
+            start_date: form.start_date || null,
+            notify_days_before:
+                form.notify_days_before === "" ||
+                form.notify_days_before == null
+                    ? null
+                    : Number(form.notify_days_before),
+            visibility: form.visibility,
+            memo: form.memo ?? "",
+            status: form.status,
+        };
+        setSaving(true);
+        try {
+            await onSave(payload);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -616,6 +657,85 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
                     </div>
                 </div>
 
+                {/* 카테고리 */}
+                <div style={{ marginBottom: 20 }}>
+                    <label
+                        style={{
+                            fontSize: 13,
+                            color: "#666",
+                            display: "block",
+                            marginBottom: 6,
+                        }}
+                    >
+                        카테고리
+                    </label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {CATEGORY_OPTIONS.map(([val, label]) => (
+                            <button
+                                key={val}
+                                type="button"
+                                onClick={() => set("category", val)}
+                                style={{
+                                    padding: "8px 12px",
+                                    borderRadius: 12,
+                                    fontSize: 13,
+                                    cursor: "pointer",
+                                    background:
+                                        form.category === val
+                                            ? "#7F77DD"
+                                            : "#F5F5F5",
+                                    color:
+                                        form.category === val ? "#fff" : "#666",
+                                    border: "none",
+                                    fontWeight:
+                                        form.category === val ? 600 : 400,
+                                    fontFamily: "inherit",
+                                }}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 결제 알림 */}
+                <div style={{ marginBottom: 20 }}>
+                    <label
+                        style={{
+                            fontSize: 13,
+                            color: "#666",
+                            display: "block",
+                            marginBottom: 6,
+                        }}
+                    >
+                        결제 알림
+                    </label>
+                    <select
+                        value={form.notify_days_before}
+                        onChange={(e) =>
+                            set("notify_days_before", e.target.value)
+                        }
+                        style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            border: "1px solid #E5E5E5",
+                            fontSize: 14,
+                            fontFamily: "inherit",
+                            background: "#fff",
+                            boxSizing: "border-box",
+                        }}
+                    >
+                        <option value="">알림 끔</option>
+                        <option value="0">결제 당일</option>
+                        {[1, 2, 3, 5, 7, 14, 30].map((d) => (
+                            <option key={d} value={String(d)}>
+                                {d}일 전
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
                 {/* 공개 범위 */}
                 <div style={{ marginBottom: 20 }}>
                     <label
@@ -687,6 +807,7 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
 
                 <button
                     onClick={handleSave}
+                    disabled={saving}
                     style={{
                         width: "100%",
                         padding: "14px",
@@ -700,7 +821,7 @@ export default function SubModal({ initial, existingTitles, onSave, onClose }) {
                         fontFamily: "inherit",
                     }}
                 >
-                    저장
+                    {saving ? "저장 중..." : "저장"}
                 </button>
             </div>
         </div>

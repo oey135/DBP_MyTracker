@@ -11,6 +11,8 @@ import { Router } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import pool from "../db.js";
+import { todayKST } from "../utils/common.js";
+import { recalcShares } from "../utils/shares.js";
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
@@ -20,23 +22,35 @@ const SALT_ROUNDS = 10;
 // ── 회원가입 ──────────────────────────────────
 // POST /api/auth/register
 // body: { user_name, email, password }
-router.post("/register", async (req, res) => {
+router.post("/register", async (req, res, next) => {
     const { user_name, email, password } = req.body;
 
-    if (!user_name || !email || !password)
+    if (!user_name?.trim() || !email?.trim() || !password)
         return res
             .status(400)
             .json({ error: "user_name, email, password는 필수입니다" });
-    if (user_name.length > 20)
+    if (user_name.trim().length > 20)
         return res
             .status(400)
             .json({ error: "user_name은 20자 이하여야 합니다" });
+    if (/^deleted_/i.test(user_name.trim()))
+        return res
+            .status(400)
+            .json({ error: "사용할 수 없는 사용자명입니다" });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || email.length > 255)
+        return res
+            .status(400)
+            .json({ error: "올바른 이메일 형식이 아닙니다" });
+    if (String(password).length < 6)
+        return res
+            .status(400)
+            .json({ error: "비밀번호는 6자 이상이어야 합니다" });
 
     try {
         const hashed = await bcrypt.hash(password, SALT_ROUNDS);
         const [result] = await pool.query(
             `INSERT INTO user (user_name, email, password) VALUES (?, ?, ?)`,
-            [user_name, email, hashed],
+            [user_name.trim(), email.trim(), hashed],
         );
         const uid = result.insertId;
         const token = jwt.sign({ uid, user_name }, JWT_SECRET, {
@@ -53,14 +67,14 @@ router.post("/register", async (req, res) => {
                 return res.status(409).json({ error: "duplicate_email" });
             return res.status(409).json({ error: "duplicate_unknown" });
         }
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
 // ── 로그인 ────────────────────────────────────
 // POST /api/auth/login
 // body: { email, password }
-router.post("/login", async (req, res) => {
+router.post("/login", async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password)
@@ -94,13 +108,13 @@ router.post("/login", async (req, res) => {
             token,
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
 // ── 내 프로필 ─────────────────────────────────
 // GET /api/users/me   (인증 필요)
-router.get("/me", async (req, res) => {
+router.get("/me", async (req, res, next) => {
     try {
         const [[user]] = await pool.query(
             `SELECT uid, user_name, email FROM user WHERE uid = ? AND deleted_at IS NULL`,
@@ -110,15 +124,16 @@ router.get("/me", async (req, res) => {
             return res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
         res.json(user);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
 // ── 회원 탈퇴 ─────────────────────────────────
 // DELETE /api/users/me  (인증 필요)
-// user 삭제 시 FK CASCADE로 subscription, friends 모두 삭제됨
-// DELETE /api/users/me — 소프트 삭제 (구독·결제 이력은 보존, 친구 관계는 삭제)
-router.delete("/me", async (req, res) => {
+// 소프트 삭제: user_name·email → 'deleted_{uid}', password → NULL
+// 친구 관계 삭제, 소유 구독은 해지, 참여 중인 공유 구독에서 나감
+// 구독·결제·정산 이력은 보존
+router.delete("/me", async (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "인증이 필요합니다" });
     const uid = req.user.uid;
 
@@ -130,8 +145,8 @@ router.delete("/me", async (req, res) => {
             `UPDATE user
        SET deleted_at = NOW(),
            user_name  = CONCAT('deleted_', uid),
-           email      = CONCAT('deleted_', uid, '@deleted.invalid'),
-           password   = ''
+           email      = CONCAT('deleted_', uid),
+           password   = NULL
        WHERE uid = ? AND deleted_at IS NULL`,
             [uid],
         );
@@ -145,11 +160,44 @@ router.delete("/me", async (req, res) => {
             [uid, uid],
         );
 
+        // 내가 소유한 구독은 해지 처리 (결제·정산 이력은 보존)
+        await conn.query(
+            `UPDATE subscription
+             SET status = 'cancelled',
+                 end_date = GREATEST(COALESCE(start_date, ?), ?)
+             WHERE uid = ? AND status = 'subscribed'`,
+            [todayKST(), todayKST(), uid],
+        );
+
+        // 참여 중이던 다른 사람의 공유 구독에서 나가기
+        const [memberships] = await conn.query(
+            `SELECT m.sub_id,
+                    EXISTS(SELECT 1 FROM payment p
+                           WHERE p.sub_id = m.sub_id AND p.uid = m.uid) AS has_record
+             FROM subscription_member m
+             WHERE m.uid = ? AND m.role = 'member' AND m.status <> 'left'`,
+            [uid],
+        );
+        for (const m of memberships) {
+            if (m.has_record)
+                await conn.query(
+                    `UPDATE subscription_member SET status = 'left'
+                     WHERE sub_id = ? AND uid = ?`,
+                    [m.sub_id, uid],
+                );
+            else
+                await conn.query(
+                    `DELETE FROM subscription_member WHERE sub_id = ? AND uid = ?`,
+                    [m.sub_id, uid],
+                );
+            await recalcShares(conn, m.sub_id);
+        }
+
         await conn.commit();
         res.json({ success: true });
     } catch (err) {
         await conn.rollback();
-        res.status(500).json({ error: err.message });
+        next(err);
     } finally {
         conn.release();
     }
