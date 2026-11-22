@@ -41,8 +41,6 @@ const card = {
 };
 const h2 = { fontSize: 15, fontWeight: 700, color: C.ink, margin: "0 0 12px" };
 const pct = (v) => `${Math.round(v * 100)}%`;
-const short = (n) =>
-    n >= 10000 ? `${Math.round(n / 1000).toLocaleString()}k` : n.toLocaleString();
 
 export default function StatsTab({ subscriptions }) {
     const thisYear = new Date().getFullYear();
@@ -384,8 +382,8 @@ function Forecast({ forecast }) {
                         <span style={{ flex: 1, height: 10, background: "#F5F5F5", borderRadius: 4, overflow: "hidden" }}>
                             <span style={{ display: "block", width: `${(m.total / max) * 100}%`, height: "100%", background: C.brand, borderRadius: 4 }} />
                         </span>
-                        <span style={{ width: 70, fontSize: 12, fontWeight: 700, color: C.ink, textAlign: "right" }}>
-                            {short(m.total)}원
+                        <span style={{ minWidth: 84, fontSize: 12, fontWeight: 700, color: C.ink, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {formatPrice(m.total)}
                         </span>
                     </button>
                     {open === m.ym && (
