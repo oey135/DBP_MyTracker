@@ -14,7 +14,7 @@
 --     + SharedSubscriptions           → subscription + subscription_member
 --                                        (공유 그룹 = 공유 구독 1건)
 -- =====================================================================
-USE mytracker;
+USE bsby7drmskkoscccevjw;   -- Clever Cloud DB
 
 DROP TABLE IF EXISTS payment;
 DROP TABLE IF EXISTS subscription_member;
