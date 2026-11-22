@@ -11,6 +11,7 @@
 import { Router } from "express";
 import pool from "../db.js";
 import { todayKST, isValidDate, isNonNegInt } from "../utils/common.js";
+import { dueDateFor } from "../utils/schedule.js";
 
 const router = Router();
 
@@ -35,7 +36,8 @@ router.post("/", async (req, res, next) => {
     try {
         // 내가 참여 중인 구독인지 확인 (남의 sub_id로 기록하는 것을 차단)
         const [[row]] = await pool.query(
-            `SELECT m.share_amount
+            `SELECT m.share_amount, s.billing_cycle, s.billing_date,
+                    s.start_date, s.end_date
              FROM subscription_member m
              JOIN subscription s ON s.sub_id = m.sub_id
              WHERE m.sub_id = ? AND m.uid = ? AND m.status = 'joined'`,
@@ -43,6 +45,12 @@ router.post("/", async (req, res, next) => {
         );
         if (!row)
             return res.status(404).json({ error: "구독을 찾을 수 없습니다" });
+
+        // 정합성: due_date는 구독 기간 안의 실제 결제 회차여야 한다
+        if (dueDateFor(row, dueDate.slice(0, 7)) !== dueDate)
+            return res
+                .status(400)
+                .json({ error: "이 구독의 결제 회차가 아닌 날짜입니다" });
 
         // 금액을 생략하면 현재 내 부담액(개인 구독은 구독료 전액).
         // 기록 시점 금액이 저장되므로 이후 구독료가 바뀌어도 이력은 유지됨

@@ -157,6 +157,11 @@ export const getSettlements = (subId, ym) =>
 export const setSettlement = (subId, uid, due_date, paid) =>
   request("PUT", `/api/shared/${subId}/settlements`, { uid, due_date, paid });
 
+// ── alerts ────────────────────────────────────
+
+/** 알림 모아보기: 결제 임박, 미정산, 공유 초대·친구 요청 수 */
+export const getAlerts = () => request("GET", "/api/alerts");
+
 // ── users ─────────────────────────────────────
 
 /** 내 프로필 */

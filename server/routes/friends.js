@@ -16,7 +16,7 @@ const router = Router();
 // ── 내 친구 목록 ──────────────────────────────
 // GET /api/friends
 // 반환: [{ uid, user_name, status, isSender }, ...]
-router.get("/", async (req, res) => {
+router.get("/", async (req, res, next) => {
     const uid = req.user.uid;
     try {
         const [rows] = await pool.query(
@@ -36,7 +36,7 @@ router.get("/", async (req, res) => {
         // MySQL의 BIT(1) bool을 JS boolean으로 변환
         res.json(rows.map((r) => ({ ...r, isSender: r.isSender === 1 })));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
@@ -76,7 +76,7 @@ router.get("/search", async (req, res, next) => {
 // ── 친구 요청 보내기 ──────────────────────────
 // POST /api/friends
 // body: { email } 또는 { user_name }
-router.post("/", async (req, res) => {
+router.post("/", async (req, res, next) => {
     const senderUid = req.user.uid;
     const email = req.body.email?.trim();
     const user_name = req.body.user_name?.trim();
@@ -123,14 +123,14 @@ router.post("/", async (req, res) => {
         }
         res.status(201).json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
 // ── 친구 요청 수락 / 거절 ─────────────────────
 // PUT /api/friends/:senderUid
 // body: { action: "accept" | "reject" }
-router.put("/:senderUid", async (req, res) => {
+router.put("/:senderUid", async (req, res, next) => {
     const receiverUid = req.user.uid;
     const senderUid = Number(req.params.senderUid);
     const { action } = req.body;
@@ -165,14 +165,14 @@ router.put("/:senderUid", async (req, res) => {
         }
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 
 // ── 보낸 요청 취소 ───────────────────────────
 // DELETE /api/friends/:targetUid
 // pending → 보낸 요청 취소 / accepted → 친구 삭제 (양방향 모두 삭제)
-router.delete("/:targetUid", async (req, res) => {
+router.delete("/:targetUid", async (req, res, next) => {
     const myUid = req.user.uid;
     const targetUid = Number(req.params.targetUid);
     try {
@@ -189,7 +189,7 @@ router.delete("/:targetUid", async (req, res) => {
                 .json({ error: "친구 관계를 찾을 수 없습니다" });
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 

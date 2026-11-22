@@ -3,6 +3,7 @@
 // 홈 탭 — 월 결제 요약 카드 + 결제 예정 알림 + 구독 미리보기
 // ─────────────────────────────────────────────
 
+import { useEffect, useState } from "react";
 import {
     formatPrice,
     formatBillingDay,
@@ -13,8 +14,17 @@ import {
     myAmount,
 } from "../utils/subscriptionUtils";
 import { getServiceMeta } from "../constants/serviceMeta";
+import { getAlerts } from "../db/api";
 
 export default function HomeTab({ subscriptions, onNavigate }) {
+    // 서버가 계산한 알림 (구독이 바뀔 때마다 다시 조회)
+    const [alerts, setAlerts] = useState(null);
+    useEffect(() => {
+        getAlerts()
+            .then(setAlerts)
+            .catch((err) => console.error("알림 조회 실패:", err));
+    }, [subscriptions]);
+
     const active = subscriptions.filter((s) => s.status === "subscribed");
     const monthly = active.reduce((sum, s) => sum + monthlyCost(s), 0);
     const yearly = active.reduce(
@@ -128,6 +138,9 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                     </div>
                 </div>
             </div>
+
+            {/* 알림 (정산·초대·친구 요청) */}
+            <AlertsCard alerts={alerts} onNavigate={onNavigate} />
 
             {/* 결제 예정 알림 (알림 설정 범위 + 14일 이내) */}
             {upcomingBills.length > 0 && (
@@ -346,6 +359,81 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                     })}
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ── 알림 카드 ─────────────────────────────────
+// 결제 임박 알림은 아래 "곧 결제될 구독"에 🔔로 표시하므로 여기서는 나머지를 모아 보여준다
+function AlertsCard({ alerts, onNavigate }) {
+    if (!alerts) return null;
+    const items = [];
+    const receive = alerts.settlements.filter((x) => x.direction === "receive");
+    const send = alerts.settlements.filter((x) => x.direction === "send");
+    if (receive.length)
+        items.push({
+            key: "receive",
+            icon: "💰",
+            text: `받을 정산 ${receive.length}건 · ${formatPrice(receive.reduce((a, x) => a + x.amount, 0))}`,
+            sub: receive.map((x) => `${x.user_name}(${x.title})`).join(", "),
+            tab: "subscriptions",
+        });
+    if (send.length)
+        items.push({
+            key: "send",
+            icon: "💸",
+            text: `보낼 정산 ${send.length}건 · ${formatPrice(send.reduce((a, x) => a + x.amount, 0))}`,
+            sub: send.map((x) => x.title).join(", "),
+            tab: "subscriptions",
+        });
+    if (alerts.invites)
+        items.push({ key: "inv", icon: "📨", text: `공유 구독 초대 ${alerts.invites}건`, tab: "subscriptions" });
+    if (alerts.friendRequests)
+        items.push({ key: "fr", icon: "👋", text: `받은 친구 요청 ${alerts.friendRequests}건`, tab: "friends" });
+    if (items.length === 0) return null;
+
+    return (
+        <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+            {items.map((it) => (
+                <button
+                    key={it.key}
+                    onClick={() => onNavigate(it.tab)}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        textAlign: "left",
+                        background: "#FFF8EC",
+                        border: "1px solid #FBE7C2",
+                        borderRadius: 14,
+                        padding: "10px 14px",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                    }}
+                >
+                    <span style={{ fontSize: 18 }}>{it.icon}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1A1A2E" }}>
+                            {it.text}
+                        </span>
+                        {it.sub && (
+                            <span
+                                style={{
+                                    display: "block",
+                                    fontSize: 11,
+                                    color: "#999",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {it.sub}
+                            </span>
+                        )}
+                    </span>
+                    <span style={{ color: "#ccc" }}>›</span>
+                </button>
+            ))}
         </div>
     );
 }

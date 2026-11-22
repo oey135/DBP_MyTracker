@@ -21,12 +21,15 @@ import usersRouter from "./routes/users.js";
 import paymentsRouter from "./routes/payments.js";
 import statsRouter from "./routes/stats.js";
 import sharedRouter from "./routes/shared.js";
+import alertsRouter from "./routes/alerts.js";
 
 import pool from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
 const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
+if (!process.env.JWT_SECRET)
+    console.warn("⚠ JWT_SECRET이 설정되지 않았습니다. 배포 환경에서는 반드시 .env에 지정하세요.");
 
 // ── 미들웨어 ──────────────────────────────────
 const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
@@ -86,12 +89,21 @@ app.use("/api/friends", authenticate, friendsRouter);
 app.use("/api/payments", authenticate, paymentsRouter);
 app.use("/api/stats", authenticate, statsRouter);
 app.use("/api/shared", authenticate, sharedRouter);
+app.use("/api/alerts", authenticate, alertsRouter);
 
 // ── 헬스체크 ──────────────────────────────────
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 
+// ── 없는 경로 ─────────────────────────────────
+app.use((_req, res) => res.status(404).json({ error: "요청한 API가 없습니다" }));
+
 // ── 에러 핸들러 ───────────────────────────────
+// 내부 오류 메시지(SQL 등)는 로그에만 남기고 클라이언트에는 일반 메시지만 보낸다
 app.use((err, _req, res, _next) => {
+    if (err.type === "entity.parse.failed")
+        return res.status(400).json({ error: "잘못된 JSON 형식입니다" });
+    if (err.message?.startsWith("CORS"))
+        return res.status(403).json({ error: "허용되지 않은 출처입니다" });
     console.error(err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
 });

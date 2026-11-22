@@ -23,7 +23,7 @@ const ymRe = /^(\d{4})-(\d{2})$/;
 const pad = (n) => String(n).padStart(2, "0");
 
 // "YYYY-MM" + n개월 → "YYYY-MM"
-function addMonths(ym, n) {
+export function addMonths(ym, n) {
     const [y, m] = ym.split("-").map(Number);
     const d = new Date(Date.UTC(y, m - 1 + n, 1));
     return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
@@ -48,7 +48,7 @@ function parseYear(v) {
 //   연간 구독 : billing_date의 월과 같은 달만
 //   기간      : start_date가 그 달 말일 이전, end_date가 그 달 1일 이후
 //   결제일    : 그 달에 없는 날짜(31일 등)는 말일로 보정
-async function scheduleRows(uid, fromYm, toYm) {
+export async function scheduleRows(uid, fromYm, toYm) {
     const [rows] = await pool.query(
         `WITH RECURSIVE months AS (
              SELECT CAST(CONCAT(?, '-01') AS DATE) AS m_start
@@ -57,8 +57,8 @@ async function scheduleRows(uid, fromYm, toYm) {
              WHERE m_start < CAST(CONCAT(?, '-01') AS DATE)
          )
          SELECT DATE_FORMAT(mo.m_start, '%Y-%m') AS ym,
-                s.sub_id, s.title, s.category, s.billing_cycle, s.status,
-                m.share_amount AS amount,
+                s.sub_id, s.uid AS owner_uid, s.title, s.category, s.billing_cycle, s.status,
+                s.notify_days_before, m.share_amount AS amount,
                 DATE_FORMAT(
                     mo.m_start + INTERVAL
                         (LEAST(DAY(s.billing_date), DAY(LAST_DAY(mo.m_start))) - 1) DAY,

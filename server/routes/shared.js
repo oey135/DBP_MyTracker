@@ -19,6 +19,7 @@ import { Router } from "express";
 import pool from "../db.js";
 import { todayKST, isValidDate, isNonNegInt } from "../utils/common.js";
 import { recalcShares } from "../utils/shares.js";
+import { dueDateFor } from "../utils/schedule.js";
 
 const router = Router();
 
@@ -54,20 +55,6 @@ async function areFriends(conn, a, b) {
         [a, b, b, a],
     );
     return !!rel;
-}
-
-// 해당 월(YYYY-MM)에 이 구독의 결제 회차가 있으면 그 결제일, 없으면 null
-function dueDateFor(sub, ym) {
-    if (!sub.billing_date) return null;
-    const [y, m] = ym.split("-").map(Number);
-    const bm = Number(sub.billing_date.slice(5, 7));
-    const bd = Number(sub.billing_date.slice(8, 10));
-    if (sub.billing_cycle === "yearly" && bm !== m) return null;
-    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    const due = `${ym}-${String(Math.min(bd, last)).padStart(2, "0")}`;
-    if (sub.start_date && sub.start_date.slice(0, 7) > ym) return null;
-    if (sub.end_date && sub.end_date < `${ym}-01`) return null;
-    return due;
 }
 
 // 여러 단계를 하나의 트랜잭션으로 실행
