@@ -87,6 +87,13 @@ export const formatNextDate = (billingDate, cycle = "monthly") => {
     return `${next.getMonth() + 1}월 ${next.getDate()}일`;
 };
 
+/** 좁은 칸용 짧은 금액: 14000 → "1.4만", 113400 → "11.3만", 9900 → "9,900" */
+export const formatShortWon = (n) => {
+    if (n < 10000) return n.toLocaleString("ko-KR");
+    const man = Math.round(n / 1000) / 10; // 소수 첫째 자리까지
+    return `${Number.isInteger(man) ? man : man.toFixed(1)}만`;
+};
+
 /** 숫자 → "17,000원" */
 export const formatPrice = (p) => p.toLocaleString("ko-KR") + "원";
 
