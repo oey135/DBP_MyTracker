@@ -14,7 +14,7 @@
 --     + SharedSubscriptions           → subscription + subscription_member
 --                                        (공유 그룹 = 공유 구독 1건)
 -- =====================================================================
-USE mytracker;
+USE myTracker;
 
 DROP TABLE IF EXISTS payment;
 DROP TABLE IF EXISTS subscription_member;
