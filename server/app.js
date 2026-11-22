@@ -19,6 +19,7 @@ import subscriptionsRouter from "./routes/subscriptions.js";
 import friendsRouter from "./routes/friends.js";
 import usersRouter from "./routes/users.js";
 import paymentsRouter from "./routes/payments.js";
+import statsRouter from "./routes/stats.js";
 
 import pool from "./db.js";
 
@@ -82,6 +83,7 @@ app.use("/api/users", authenticate, usersRouter);
 app.use("/api/subscriptions", authenticate, subscriptionsRouter);
 app.use("/api/friends", authenticate, friendsRouter);
 app.use("/api/payments", authenticate, paymentsRouter);
+app.use("/api/stats", authenticate, statsRouter);
 
 // ── 헬스체크 ──────────────────────────────────
 app.get("/health", (_, res) => res.json({ status: "ok" }));

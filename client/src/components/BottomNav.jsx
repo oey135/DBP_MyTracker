@@ -6,6 +6,7 @@ const TABS = [
   { id: "home",          icon: "🏠", label: "홈"     },
   { id: "subscriptions", icon: "📋", label: "구독"   },
   { id: "calendar",      icon: "📅", label: "캘린더" },
+  { id: "stats",         icon: "📊", label: "분석"   },
   { id: "friends",       icon: "👥", label: "친구"   },
   { id: "profile",       icon: "👤", label: "내 정보" },
 ];
@@ -25,7 +26,7 @@ export default function BottomNav({ tab, setTab }) {
           onClick={() => setTab(item.id)}
           style={{
             display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-            background: "none", border: "none", cursor: "pointer", padding: "4px 12px",
+            background: "none", border: "none", cursor: "pointer", padding: "4px 6px",
             opacity: tab === item.id ? 1 : 0.4, transition: "opacity 0.15s",
           }}
         >

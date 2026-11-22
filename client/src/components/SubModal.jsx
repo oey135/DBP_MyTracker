@@ -14,6 +14,7 @@ import {
     formatBillingDay,
 } from "../utils/subscriptionUtils";
 import popularServices from "../constants/popularServices.json";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 // ── DayPicker ────────────────────────────────
 const pillStyle = (on, w) => ({
@@ -263,17 +264,6 @@ const EMPTY_FORM = {
     notify_days_before: "",
 };
 
-// 카테고리 (server/schema.sql subscription.category ENUM과 동일)
-export const CATEGORY_OPTIONS = [
-    ["ott", "영상"],
-    ["music", "음악"],
-    ["reading", "도서·웹툰"],
-    ["productivity", "생산성·AI"],
-    ["cloud", "클라우드"],
-    ["game", "게임"],
-    ["shopping", "쇼핑·멤버십"],
-    ["etc", "기타"],
-];
 
 const NON_TITLE_FIELDS = [
     {

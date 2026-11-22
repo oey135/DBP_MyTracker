@@ -26,9 +26,16 @@ export default function HomeTab({ subscriptions, onNavigate }) {
             ...s,
             days: getDaysUntil(s.billing_date, s.billing_cycle),
         }))
-        .filter((s) => s.days >= 0 && s.days <= 14)
-        .sort((a, b) => a.days - b.days)
-        .slice(0, 3);
+        // 알림 설정(notify_days_before) 범위에 들어온 구독은 알림 대상
+        .map((s) => ({
+            ...s,
+            alerted:
+                s.notify_days_before != null &&
+                s.days <= s.notify_days_before,
+        }))
+        .filter((s) => s.days >= 0 && (s.alerted || s.days <= 14))
+        .sort((a, b) => b.alerted - a.alerted || a.days - b.days)
+        .slice(0, 5);
 
     return (
         <div style={{ padding: "24px 20px 16px" }}>
@@ -120,7 +127,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                 </div>
             </div>
 
-            {/* 결제 예정 알림 (14일 이내) */}
+            {/* 결제 예정 알림 (알림 설정 범위 + 14일 이내) */}
             {upcomingBills.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                     <h2
@@ -194,6 +201,9 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                                                     margin: 0,
                                                 }}
                                             >
+                                                {s.alerted && "🔔 "}
+                                                {s.billing_cycle === "yearly" &&
+                                                    "연간 · "}
                                                 {s.days === 0
                                                     ? "오늘 결제"
                                                     : `${s.days}일 후 (${formatNextDate(s.billing_date, s.billing_cycle)})`}
@@ -206,7 +216,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                                             fontSize: 14,
                                             margin: 0,
                                             color:
-                                                s.days <= 3
+                                                s.alerted || s.days <= 3
                                                     ? "#E50914"
                                                     : "#7F77DD",
                                         }}

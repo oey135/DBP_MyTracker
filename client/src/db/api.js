@@ -103,6 +103,24 @@ export const cancelFriendRequest = (receiverUid) =>
 export const removeFriend = (friendUid) =>
   request("DELETE", `/api/friends/${friendUid}`);
 
+// ── stats (지출 분석) ─────────────────────────
+
+/** 이번 달·지난달 비교, 월/연 예상, 결제 주기별 비교 (ym: "YYYY-MM") */
+export const getStatsOverview = (ym) =>
+  request("GET", `/api/stats/overview${ym ? `?ym=${ym}` : ""}`);
+
+/** 월별 예정·실제 지출 추이 */
+export const getStatsMonthly = (year) =>
+  request("GET", `/api/stats/monthly?year=${year}`);
+
+/** 서비스별·카테고리별 지출 */
+export const getStatsBreakdown = (year) =>
+  request("GET", `/api/stats/breakdown?year=${year}`);
+
+/** 향후 N개월 예상 지출 */
+export const getStatsForecast = (months = 6) =>
+  request("GET", `/api/stats/forecast?months=${months}`);
+
 // ── users ─────────────────────────────────────
 
 /** 내 프로필 */

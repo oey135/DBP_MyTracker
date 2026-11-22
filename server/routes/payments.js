@@ -35,7 +35,7 @@ router.post("/", async (req, res, next) => {
     try {
         // 내가 참여 중인 구독인지 확인 (남의 sub_id로 기록하는 것을 차단)
         const [[row]] = await pool.query(
-            `SELECT s.price
+            `SELECT m.share_amount
              FROM subscription_member m
              JOIN subscription s ON s.sub_id = m.sub_id
              WHERE m.sub_id = ? AND m.uid = ? AND m.status = 'joined'`,
@@ -44,8 +44,9 @@ router.post("/", async (req, res, next) => {
         if (!row)
             return res.status(404).json({ error: "구독을 찾을 수 없습니다" });
 
-        // 금액을 생략하면 현재 구독 금액. 이후 구독료가 바뀌어도 이 값은 유지됨
-        const amount = req.body.amount ?? row.price;
+        // 금액을 생략하면 현재 내 부담액(개인 구독은 구독료 전액).
+        // 기록 시점 금액이 저장되므로 이후 구독료가 바뀌어도 이력은 유지됨
+        const amount = req.body.amount ?? row.share_amount;
         if (!isNonNegInt(amount))
             return res
                 .status(400)

@@ -20,6 +20,7 @@ import SubModal         from "./components/SubModal";
 import ConfirmModal, { useConfirm } from "./components/ConfirmModal";
 import HomeTab          from "./components/HomeTab";
 import SubscriptionsTab from "./components/SubscriptionsTab";
+import StatsTab         from "./components/StatsTab";
 import CalendarTab      from "./components/CalendarTab";
 import FriendsTab       from "./components/FriendsTab";
 import ProfileTab       from "./components/ProfileTab";
@@ -161,6 +162,7 @@ export default function App() {
         {tab === "home"          && <HomeTab          subscriptions={subscriptions} onNavigate={setTab} />}
         {tab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} />}
         {tab === "calendar"      && <CalendarTab      subscriptions={subscriptions} />}
+        {tab === "stats"         && <StatsTab         subscriptions={subscriptions} />}
         {tab === "friends"       && <FriendsTab       confirm={confirm} />}
         {tab === "profile"       && <ProfileTab       subscriptions={subscriptions} confirm={confirm} onLogout={handleLogout} onWithdraw={handleWithdraw} />}
       </div>
