@@ -25,7 +25,7 @@ DROP TABLE IF EXISTS user;
 
 
 -- ---------------------------------------------------------------------
--- 1. user                                  [기획서 1-1 회원 관리]
+-- 1. user
 --   탈퇴 = 소프트 삭제(deleted_at), 개인정보 완전 삭제, 복구 불가
 --   탈퇴 시 user_name·email → 'deleted_{uid}', password → NULL
 -- ---------------------------------------------------------------------
@@ -41,7 +41,7 @@ CREATE TABLE user (
 
 
 -- ---------------------------------------------------------------------
--- 2. friends                               [기획서 1-5 친구 관리]
+-- 2. friends
 --   sender = 요청자 / 요청·수락·거절 = status / 친구 삭제 = 행 DELETE
 --   역방향 중복 방지 (LEAST/GREATEST + UNIQUE)
 -- ---------------------------------------------------------------------
@@ -59,8 +59,7 @@ CREATE TABLE friends (
 
 -- ---------------------------------------------------------------------
 -- 3. subscription  (개인/공유 통합, uid = 소유자)
---                                [기획서 1-2 개인 구독, 1-3 결제 일정·알림,
---                                 1-4 지출 분석, 1-5 공개 범위, 1-6 분담 방식]
+--
 --   category      : 카테고리별 지출 통계용 분류
 --   billing_cycle : 월간/연간 결제 주기 (월평균 환산은 조회 시 계산)
 --   billing_date  : 연도 2000 고정
@@ -104,7 +103,7 @@ CREATE TABLE subscription (
 
 
 -- ---------------------------------------------------------------------
--- 4. subscription_member                   [기획서 1-6 공유 구독]
+-- 4. subscription_member
 --   소유자도 role = 'owner' 행으로 포함 (개인 구독 = owner 행 1개)
 --   share_amount : 참여자별 부담 금액
 --   status       : 친구 초대(invited) → 수락(joined) → 나가기(left)
@@ -125,7 +124,7 @@ CREATE TABLE subscription_member (
 
 
 -- ---------------------------------------------------------------------
--- 5. payment  (결제 이력 + 정산 통합)  [기획서 III-2 결제 이력, 1-6 정산]
+-- 5. payment  (결제 이력 + 정산 통합)
 --   type     : payment = 실제 결제 기록 (사용자가 직접 기록)
 --              settlement = 참여자별 정산 몫
 --   amount   : 기록 시점 금액 → 구독료가 바뀌어도 이력 보존
@@ -187,20 +186,20 @@ INSERT INTO subscription
    start_date, end_date, notify_days_before, visibility, split_type, memo, status)
 VALUES
   -- minji(1)
-  (1,  1, 'Netflix',          'ott',          17000,  'monthly', '2000-01-15', '2025-03-15', NULL,         3,    'friends', 'equal',  '프리미엄, 친구 2명과 공유', 'subscribed'),
-  (2,  1, 'Spotify',          'music',        10900,  'monthly', '2000-01-05', '2025-09-05', NULL,         NULL, 'private', 'equal',  NULL,                        'subscribed'),
-  (3,  1, 'iCloud+',          'cloud',        4400,   'monthly', '2000-01-28', '2024-01-28', NULL,         1,    'friends', 'equal',  '200GB',                     'subscribed'),
-  (4,  1, '리디셀렉트',       'reading',      9900,   'monthly', '2000-01-10', '2026-01-10', '2026-06-10', NULL, 'private', 'equal',  '읽을 책을 다 읽어서 해지',  'cancelled'),
-  (5,  1, 'Microsoft 365',    'productivity', 119000, 'yearly',  '2000-03-01', '2024-03-01', NULL,         7,    'private', 'equal',  '패밀리 요금제',             'subscribed'),
+  (1,  1, 'Netflix', 'ott', 17000,'monthly', '2000-01-15', '2025-03-15', NULL,3, 'friends','equal','프리미엄, 친구 2명과 공유', 'subscribed'),
+  (2,  1, 'Spotify', 'music', 10900,'monthly', '2000-01-05', '2025-09-05', NULL, NULL, 'private', 'equal', NULL, 'subscribed'),
+  (3,  1, 'iCloud+', 'cloud', 4400,'monthly', '2000-01-28', '2024-01-28', NULL,1,'friends', 'equal', '200GB',                     'subscribed'),
+  (4,  1, '리디셀렉트', 'reading', 9900, 'monthly', '2000-01-10', '2026-01-10', '2026-06-10', NULL, 'private', 'equal', '읽을 책을 다 읽어서 해지', 'cancelled'),
+  (5,  1, 'Microsoft 365', 'productivity', 119000, 'yearly',  '2000-03-01', '2024-03-01', NULL, 7, 'private', 'equal', '패밀리 요금제', 'subscribed'),
   -- jihoon(2)
-  (6,  2, 'YouTube Premium',  'ott',          14900,  'monthly', '2000-01-20', '2025-11-20', NULL,         2,    'friends', 'custom', 'minji 4,000원 고정 분담',   'subscribed'),
-  (7,  2, '쿠팡 와우',        'shopping',     7890,   'monthly', '2000-01-10', '2025-05-10', NULL,         NULL, 'friends', 'equal',  NULL,                        'subscribed'),
+  (6,  2, 'YouTube Premium', 'ott', 14900, 'monthly', '2000-01-20', '2025-11-20', NULL, 2, 'friends', 'custom', 'minji 4,000원 고정 분담', 'subscribed'),
+  (7,  2, '쿠팡 와우', 'shopping', 7890, 'monthly', '2000-01-10', '2025-05-10', NULL, NULL, 'friends', 'equal', NULL,                        'subscribed'),
   -- sora(3)
-  (8,  3, 'Nintendo Switch Online', 'game',   34900,  'yearly',  '2000-07-01', '2025-07-01', NULL,         5,    'friends', 'equal',  '패밀리 플랜',               'subscribed'),
+  (8,  3, 'Nintendo Switch Online', 'game', 34900, 'yearly', '2000-07-01', '2025-07-01', NULL, 5, 'friends', 'equal', '패밀리 플랜', 'subscribed'),
   -- taeyang(4)
-  (9,  4, '헬스장 앱',        'etc',          5000,   'monthly', '2000-01-25', '2026-08-25', NULL,         NULL, 'private', 'equal',  NULL,                        'subscribed'),
+  (9,  4, '헬스장 앱', 'etc', 5000, 'monthly', '2000-01-25', '2026-08-25', NULL, NULL, 'private', 'equal', NULL, 'subscribed'),
   -- hana(5)
-  (10, 5, 'Google One',       'cloud',        2400,   'monthly', '2000-01-02', '2026-02-02', NULL,         NULL, 'friends', 'equal',  '100GB',                     'subscribed');
+  (10, 5, 'Google One', 'cloud', 2400, 'monthly', '2000-01-02', '2026-02-02', NULL, NULL, 'friends', 'equal', '100GB', 'subscribed');
 
 -- ---------------------------------------------------------------------
 -- subscription_member : 모든 구독에 owner 행 1개 + 공유 참여자
