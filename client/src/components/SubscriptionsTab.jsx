@@ -3,14 +3,18 @@
 // 구독 관리 탭 — 필터링 + 카드 목록 + 수정·삭제·복구 액션
 // ─────────────────────────────────────────────
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
     formatPrice,
     formatBillingDay,
     getDaysUntil,
     monthlyCost,
+    myAmount,
+    isShared,
 } from "../utils/subscriptionUtils";
 import { getServiceMeta } from "../constants/serviceMeta";
+import { getSharedInvites, respondSharedInvite } from "../db/api";
+import SharedModal from "./SharedModal";
 
 export default function SubscriptionsTab({
     subscriptions,
@@ -18,9 +22,33 @@ export default function SubscriptionsTab({
     onEdit,
     onDelete,
     onRestore,
+    myUid,
+    onChanged,
 }) {
     const [filter, setFilter] = useState("subscribed");
     const [search, setSearch] = useState("");
+    const [sharedSubId, setSharedSubId] = useState(null); // 공유 관리 모달
+    const [invites, setInvites] = useState([]);
+
+    // 나에게 온 공유 초대
+    const loadInvites = useCallback(() => {
+        getSharedInvites()
+            .then(setInvites)
+            .catch((err) => console.error("공유 초대 조회 실패:", err));
+    }, []);
+    useEffect(() => {
+        loadInvites();
+    }, [loadInvites, subscriptions]);
+
+    const respond = async (subId, action) => {
+        try {
+            await respondSharedInvite(subId, action);
+            loadInvites();
+            onChanged?.();
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const filtered = subscriptions.filter((s) => {
         const matchFilter = filter === "all" ? true : s.status === filter;
@@ -70,6 +98,39 @@ export default function SubscriptionsTab({
                     + 추가
                 </button>
             </div>
+
+            {/* 공유 구독 초대 */}
+            {invites.map((iv) => (
+                <div
+                    key={iv.sub_id}
+                    style={{
+                        background: "#F8F7FF",
+                        border: "1px solid #E3DFFB",
+                        borderRadius: 14,
+                        padding: "12px 14px",
+                        marginBottom: 10,
+                    }}
+                >
+                    <p style={{ fontSize: 13, margin: "0 0 8px", color: "#1A1A2E" }}>
+                        <b>{iv.owner_name}</b>님이 <b>{iv.title}</b> 공유 구독에 초대했어요
+                        <span style={{ color: "#999", fontSize: 12 }}>
+                            {" "}
+                            ({formatPrice(iv.price)} / {iv.billing_cycle === "yearly" ? "연" : "월"},{" "}
+                            {iv.split_type === "equal"
+                                ? `${iv.member_count + 1}명 균등 분담`
+                                : "지정 금액 분담"})
+                        </span>
+                    </p>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <button onClick={() => respond(iv.sub_id, "reject")} style={btn("#F5F5F5", "#555")}>
+                            거절
+                        </button>
+                        <button onClick={() => respond(iv.sub_id, "accept")} style={btn("#7F77DD", "#fff")}>
+                            수락
+                        </button>
+                    </div>
+                </div>
+            ))}
 
             {/* 검색창 */}
             <div style={{ position: "relative", marginBottom: 12 }}>
@@ -205,17 +266,41 @@ export default function SubscriptionsTab({
                             onEdit={onEdit}
                             onDelete={onDelete}
                             onRestore={onRestore}
+                            onShare={(sub) => setSharedSubId(sub.sub_id)}
                         />
                     ))
                 )}
             </div>
+
+            {sharedSubId && (
+                <SharedModal
+                    subId={sharedSubId}
+                    myUid={myUid}
+                    onClose={() => setSharedSubId(null)}
+                    onChanged={onChanged}
+                />
+            )}
         </div>
     );
 }
 
+const btn = (bg, color) => ({
+    fontSize: 12,
+    padding: "5px 12px",
+    borderRadius: 8,
+    background: bg,
+    border: "none",
+    cursor: "pointer",
+    color,
+    fontWeight: 600,
+    fontFamily: "inherit",
+});
+
 // ── 개별 구독 카드 ────────────────────────────
-function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
+function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore, onShare }) {
     const meta = getServiceMeta(s.title);
+    const shared = isShared(s);
+    const isMember = s.role === "member";
     const days = getDaysUntil(s.billing_date, s.billing_cycle);
     const isCancelled = s.status === "cancelled";
 
@@ -295,6 +380,23 @@ function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
                                         해지됨
                                     </span>
                                 )}
+                                {shared && (
+                                    <span
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            color: "#534AB7",
+                                            background: "#EDE9FF",
+                                            borderRadius: 6,
+                                            padding: "1px 6px",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {isMember
+                                            ? `공유 · ${s.owner_name}`
+                                            : `공유 ${s.member_count}명`}
+                                    </span>
+                                )}
                             </div>
                             <p
                                 style={{
@@ -317,7 +419,20 @@ function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
                                 color: isCancelled ? "#ccc" : "#1A1A2E",
                             }}
                         >
-                            {formatPrice(s.price)}
+                            {formatPrice(myAmount(s))}
+                            {shared && (
+                                <span
+                                    style={{
+                                        display: "block",
+                                        fontSize: 11,
+                                        fontWeight: 500,
+                                        color: "#aaa",
+                                        textAlign: "right",
+                                    }}
+                                >
+                                    총 {formatPrice(s.price)} 중 내 몫
+                                </span>
+                            )}
                         </p>
                     </div>
 
@@ -351,7 +466,23 @@ function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
                             )}
                         </div>
                         <div style={{ flexShrink: 0 }}>
-                            {isCancelled ? (
+                            {isMember ? (
+                                <button
+                                    onClick={() => onShare(s)}
+                                    style={{
+                                        fontSize: 11,
+                                        padding: "4px 10px",
+                                        borderRadius: 8,
+                                        background: "#F0EFFE",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        color: "#534AB7",
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    공유 정보
+                                </button>
+                            ) : isCancelled ? (
                                 <button
                                     onClick={() => onRestore(s)}
                                     style={{
@@ -369,6 +500,20 @@ function SubscriptionCard({ sub: s, onEdit, onDelete, onRestore }) {
                                 </button>
                             ) : (
                                 <div style={{ display: "flex", gap: 6 }}>
+                                    <button
+                                        onClick={() => onShare(s)}
+                                        style={{
+                                            fontSize: 11,
+                                            padding: "4px 10px",
+                                            borderRadius: 8,
+                                            background: "#F0EFFE",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            color: "#534AB7",
+                                        }}
+                                    >
+                                        공유
+                                    </button>
                                     <button
                                         onClick={() => onEdit(s)}
                                         style={{

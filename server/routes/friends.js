@@ -2,6 +2,7 @@
 // server/routes/friends.js
 //
 // GET    /api/friends                 내 친구 목록 (상태 포함)
+// GET    /api/friends/search?email=   이메일로 사용자 검색
 // POST   /api/friends                 친구 요청 보내기
 // PUT    /api/friends/:senderUid      요청 수락 / 거절 (거절은 status = rejected)
 // DELETE /api/friends/:targetUid      보낸 요청 취소 / 친구 삭제
@@ -39,21 +40,57 @@ router.get("/", async (req, res) => {
     }
 });
 
+// ── 사용자 검색 (이메일) ───────────────────────
+// GET /api/friends/search?email=...
+// 개인정보 보호를 위해 이메일이 정확히 일치하는 사용자만 반환
+// 반환: { uid, user_name, relation: none | pending_sent | pending_received | accepted }
+router.get("/search", async (req, res, next) => {
+    const myUid = req.user.uid;
+    const email = String(req.query.email ?? "").trim();
+    if (!email) return res.status(400).json({ error: "email을 입력하세요" });
+
+    try {
+        const [[u]] = await pool.query(
+            `SELECT uid, user_name FROM user WHERE email = ? AND deleted_at IS NULL`,
+            [email],
+        );
+        if (!u) return res.status(404).json({ error: "해당 이메일의 사용자가 없습니다" });
+        if (u.uid === myUid)
+            return res.json({ ...u, relation: "self" });
+
+        const [[f]] = await pool.query(
+            `SELECT sender, status FROM friends
+             WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)`,
+            [myUid, u.uid, u.uid, myUid],
+        );
+        let relation = "none";
+        if (f?.status === "accepted") relation = "accepted";
+        else if (f?.status === "pending")
+            relation = f.sender === myUid ? "pending_sent" : "pending_received";
+        res.json({ ...u, relation });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // ── 친구 요청 보내기 ──────────────────────────
 // POST /api/friends
-// body: { user_name }  ← 상대방 username
+// body: { email } 또는 { user_name }
 router.post("/", async (req, res) => {
     const senderUid = req.user.uid;
-    const { user_name } = req.body;
+    const email = req.body.email?.trim();
+    const user_name = req.body.user_name?.trim();
 
-    if (!user_name)
-        return res.status(400).json({ error: "user_name은 필수입니다" });
+    if (!email && !user_name)
+        return res.status(400).json({ error: "email 또는 user_name이 필요합니다" });
 
     try {
         // 상대방 uid 조회
         const [[target]] = await pool.query(
-            `SELECT uid FROM user WHERE user_name = ? AND deleted_at IS NULL`,
-            [user_name],
+            email
+                ? `SELECT uid FROM user WHERE email = ? AND deleted_at IS NULL`
+                : `SELECT uid FROM user WHERE user_name = ? AND deleted_at IS NULL`,
+            [email ?? user_name],
         );
         if (!target)
             return res.status(404).json({ error: "사용자를 찾을 수 없습니다" });

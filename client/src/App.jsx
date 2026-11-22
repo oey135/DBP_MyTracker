@@ -149,7 +149,7 @@ export default function App() {
 
   // 중복 검사용: 구독 중인 서비스 이름 (수정 중인 구독은 제외)
   const existingTitles = subscriptions
-    .filter(s => s.status === "subscribed" && s.sub_id !== subModal?.data?.sub_id)
+    .filter(s => s.role !== "member" && s.status === "subscribed" && s.sub_id !== subModal?.data?.sub_id)
     .map(s => s.title);
 
   return (
@@ -160,7 +160,7 @@ export default function App() {
     }}>
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 88 }}>
         {tab === "home"          && <HomeTab          subscriptions={subscriptions} onNavigate={setTab} />}
-        {tab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} />}
+        {tab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} myUid={user.uid} onChanged={refresh} />}
         {tab === "calendar"      && <CalendarTab      subscriptions={subscriptions} />}
         {tab === "stats"         && <StatsTab         subscriptions={subscriptions} />}
         {tab === "friends"       && <FriendsTab       confirm={confirm} />}

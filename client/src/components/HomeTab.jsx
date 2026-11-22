@@ -9,6 +9,8 @@ import {
     getDaysUntil,
     formatNextDate,
     monthlyCost,
+    annualCost,
+    myAmount,
 } from "../utils/subscriptionUtils";
 import { getServiceMeta } from "../constants/serviceMeta";
 
@@ -17,7 +19,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
     const monthly = active.reduce((sum, s) => sum + monthlyCost(s), 0);
     const yearly = active.reduce(
         (sum, s) =>
-            sum + (s.billing_cycle === "yearly" ? s.price : s.price * 12),
+            sum + annualCost(s),
         0,
     );
 
@@ -221,7 +223,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                                                     : "#7F77DD",
                                         }}
                                     >
-                                        {formatPrice(s.price)}
+                                        {formatPrice(myAmount(s))}
                                     </p>
                                 </div>
                             );
@@ -337,7 +339,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                                         margin: 0,
                                     }}
                                 >
-                                    {formatPrice(s.price)}
+                                    {formatPrice(myAmount(s))}
                                 </p>
                             </div>
                         );

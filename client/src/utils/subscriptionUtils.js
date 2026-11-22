@@ -20,9 +20,20 @@ export const buildBilling = (cycle, month, day) => {
     return `2000-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 };
 
-/** 월 환산 금액 (연간은 12로 나눔) */
+/** 내 부담액 (공유 구독이면 내 몫, 개인 구독이면 구독료 전액) */
+export const myAmount = (sub) => sub.my_share ?? sub.price;
+
+/** 공유 구독인지 (owner 포함 참여자 2명 이상이거나 내가 참여자) */
+export const isShared = (sub) =>
+    sub.role === "member" || (sub.member_count ?? 1) > 1;
+
+/** 월 환산 금액 (연간은 12로 나눔) — 내 부담액 기준 */
 export const monthlyCost = (sub) =>
-    sub.billing_cycle === "yearly" ? Math.round(sub.price / 12) : sub.price;
+    sub.billing_cycle === "yearly" ? Math.round(myAmount(sub) / 12) : myAmount(sub);
+
+/** 연간 금액 — 내 부담액 기준 */
+export const annualCost = (sub) =>
+    sub.billing_cycle === "yearly" ? myAmount(sub) : myAmount(sub) * 12;
 
 /** "2000-01-15" → 15 */
 export const getBillingDay = (billingDate) => {

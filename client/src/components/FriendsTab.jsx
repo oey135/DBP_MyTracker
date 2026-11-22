@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
     getFriends,
     sendFriendRequest,
+    searchUserByEmail,
     respondFriendRequest,
     cancelFriendRequest,
     removeFriend,
@@ -19,6 +20,7 @@ export default function FriendsTab({ confirm }) {
     const [friends, setFriends] = useState([]);
     const [addInput, setAddInput] = useState("");
     const [addMsg, setAddMsg] = useState({ text: "", ok: true });
+    const [found, setFound] = useState(null); // 이메일 검색 결과
     const [expanded, setExpanded] = useState(null);
     const [friendSubs, setFriendSubs] = useState({});
 
@@ -35,17 +37,35 @@ export default function FriendsTab({ confirm }) {
         loadFriends();
     }, [loadFriends]);
 
-    const handleAdd = async () => {
-        if (!addInput.trim()) return;
+    const flash = (text, ok) => {
+        setAddMsg({ text, ok });
+        setTimeout(() => setAddMsg({ text: "", ok: true }), 3000);
+    };
+
+    // 1) 이메일로 사용자 검색
+    const handleSearch = async () => {
+        const email = addInput.trim();
+        if (!email) return;
+        setFound(null);
         try {
-            await sendFriendRequest(CURRENT_UID, addInput.trim());
-            setAddMsg({ text: "친구 요청을 보냈습니다 ✓", ok: true });
+            setFound({ ...(await searchUserByEmail(email)), email });
+        } catch (err) {
+            flash(err.message, false);
+        }
+    };
+
+    // 2) 검색된 사용자에게 친구 요청
+    const handleAdd = async () => {
+        if (!found) return;
+        try {
+            await sendFriendRequest(found.email);
+            flash("친구 요청을 보냈습니다 ✓", true);
             setAddInput("");
+            setFound(null);
             loadFriends();
         } catch (err) {
-            setAddMsg({ text: err.message, ok: false });
+            flash(err.message, false);
         }
-        setTimeout(() => setAddMsg({ text: "", ok: true }), 3000);
     };
 
     const handleRespond = async (senderUid, action) => {
@@ -146,10 +166,14 @@ export default function FriendsTab({ confirm }) {
                 </p>
                 <div style={{ display: "flex", gap: 8 }}>
                     <input
+                        type="email"
                         value={addInput}
-                        onChange={(e) => setAddInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                        placeholder="사용자명 입력"
+                        onChange={(e) => {
+                            setAddInput(e.target.value);
+                            setFound(null);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        placeholder="친구 이메일 입력"
                         style={{
                             flex: 1,
                             padding: "10px 14px",
@@ -161,7 +185,7 @@ export default function FriendsTab({ confirm }) {
                         }}
                     />
                     <button
-                        onClick={handleAdd}
+                        onClick={handleSearch}
                         style={{
                             padding: "10px 16px",
                             background: "#7F77DD",
@@ -173,9 +197,56 @@ export default function FriendsTab({ confirm }) {
                             cursor: "pointer",
                         }}
                     >
-                        요청
+                        검색
                     </button>
                 </div>
+                {found && (
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: "10px 12px",
+                            marginTop: 10,
+                        }}
+                    >
+                        <UserAvatar name={found.user_name} size={32} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: "#1A1A2E" }}>
+                                {found.user_name}
+                            </p>
+                            <p style={{ fontSize: 11, color: "#aaa", margin: 0 }}>{found.email}</p>
+                        </div>
+                        {found.relation === "none" ? (
+                            <button
+                                onClick={handleAdd}
+                                style={{
+                                    padding: "6px 12px",
+                                    background: "#7F77DD",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: 10,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                }}
+                            >
+                                친구 요청
+                            </button>
+                        ) : (
+                            <span style={{ fontSize: 12, color: "#999" }}>
+                                {{
+                                    self: "나",
+                                    accepted: "이미 친구",
+                                    pending_sent: "요청 보냄",
+                                    pending_received: "받은 요청 있음",
+                                }[found.relation]}
+                            </span>
+                        )}
+                    </div>
+                )}
                 {addMsg.text && (
                     <p
                         style={{

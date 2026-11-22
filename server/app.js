@@ -20,6 +20,7 @@ import friendsRouter from "./routes/friends.js";
 import usersRouter from "./routes/users.js";
 import paymentsRouter from "./routes/payments.js";
 import statsRouter from "./routes/stats.js";
+import sharedRouter from "./routes/shared.js";
 
 import pool from "./db.js";
 
@@ -84,6 +85,7 @@ app.use("/api/subscriptions", authenticate, subscriptionsRouter);
 app.use("/api/friends", authenticate, friendsRouter);
 app.use("/api/payments", authenticate, paymentsRouter);
 app.use("/api/stats", authenticate, statsRouter);
+app.use("/api/shared", authenticate, sharedRouter);
 
 // ── 헬스체크 ──────────────────────────────────
 app.get("/health", (_, res) => res.json({ status: "ok" }));

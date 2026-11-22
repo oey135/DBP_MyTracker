@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
-import { formatPrice, monthlyCost } from "../utils/subscriptionUtils";
+import { formatPrice, monthlyCost, annualCost } from "../utils/subscriptionUtils";
 import { getServiceMeta } from "../constants/serviceMeta";
 import { getUserById, deleteAccount } from "../db/api";
 
@@ -40,7 +40,7 @@ export default function ProfileTab({
     const monthly = active.reduce((sum, s) => sum + monthlyCost(s), 0);
     const yearly = active.reduce(
         (sum, s) =>
-            sum + (s.billing_cycle === "yearly" ? s.price : s.price * 12),
+            sum + annualCost(s),
         0,
     );
     const byPrice = [...active]

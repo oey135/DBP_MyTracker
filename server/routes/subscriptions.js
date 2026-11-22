@@ -19,6 +19,7 @@ import {
     isNonNegInt,
     isCheckViolation,
 } from "../utils/common.js";
+import { recalcShares } from "../utils/shares.js";
 
 const router = Router();
 
@@ -96,31 +97,6 @@ const defaultEndDate = (startDate) => {
     return startDate && startDate > today ? startDate : today;
 };
 
-// 균등 분담이면 참여자(나가지 않은 멤버) 수로 나눠 share_amount 재계산.
-// 나머지는 owner가 부담한다.
-export async function recalcEqualShares(conn, subId) {
-    const [[sub]] = await conn.query(
-        `SELECT price, split_type FROM subscription WHERE sub_id = ?`,
-        [subId],
-    );
-    if (!sub || sub.split_type !== "equal") return;
-    const [members] = await conn.query(
-        `SELECT uid, role FROM subscription_member
-         WHERE sub_id = ? AND status <> 'left'`,
-        [subId],
-    );
-    if (members.length === 0) return;
-    const base = Math.floor(sub.price / members.length);
-    const remainder = sub.price - base * members.length;
-    for (const m of members) {
-        await conn.query(
-            `UPDATE subscription_member SET share_amount = ?
-             WHERE sub_id = ? AND uid = ?`,
-            [m.role === "owner" ? base + remainder : base, subId, m.uid],
-        );
-    }
-}
-
 // 같은 소유자에게 구독 중인 같은 이름의 서비스가 있는지
 async function hasActiveDuplicate(conn, uid, title, exceptSubId = null) {
     const [[dup]] = await conn.query(
@@ -140,13 +116,24 @@ const parseSubId = (v) => {
 
 // ── 내 구독 목록 ──────────────────────────────
 // GET /api/subscriptions
+// 내가 소유한 구독 + 참여(joined) 중인 공유 구독
+//   role        : owner | member
+//   my_share    : 내 부담액 (개인 구독은 구독료 전액)
+//   member_count: 참여 중인 인원 (owner 포함). 2 이상이면 공유 구독
+//   owner_name  : 소유자 이름
 router.get("/", async (req, res, next) => {
     const uid = req.user.uid;
     try {
         const [rows] = await pool.query(
-            `SELECT ${SUB_COLUMNS}
+            `SELECT ${SUB_COLUMNS},
+                    me.role, me.share_amount AS my_share,
+                    o.user_name AS owner_name,
+                    (SELECT COUNT(*) FROM subscription_member x
+                      WHERE x.sub_id = s.sub_id AND x.status = 'joined') AS member_count
              FROM subscription s
-             WHERE s.uid = ?
+             JOIN subscription_member me
+               ON me.sub_id = s.sub_id AND me.uid = ? AND me.status = 'joined'
+             JOIN user o ON o.uid = s.uid
              ORDER BY s.status = 'cancelled', s.title, s.sub_id`,
             [uid],
         );
@@ -342,9 +329,14 @@ router.put("/:subId", async (req, res, next) => {
             [...fields.map((f) => updates[f]), subId],
         );
 
-        // 금액이나 분담 방식이 바뀌면 균등 분담액 다시 계산
-        if ("price" in updates || "split_type" in updates)
-            await recalcEqualShares(conn, subId);
+        // 금액이나 분담 방식이 바뀌면 분담액 다시 계산
+        if ("price" in updates || "split_type" in updates) {
+            const shareErr = await recalcShares(conn, subId);
+            if (shareErr) {
+                await conn.rollback();
+                return res.status(400).json({ error: shareErr });
+            }
+        }
 
         await conn.commit();
 

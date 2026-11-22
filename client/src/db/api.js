@@ -87,9 +87,13 @@ export const getFriendSubscriptions = (uid) =>
 export const getFriends = (_uid) =>
   request("GET", "/api/friends");
 
-/** 친구 요청 보내기 */
-export const sendFriendRequest = (_sender, user_name) =>
-  request("POST", "/api/friends", { user_name });
+/** 이메일로 사용자 검색 → { uid, user_name, relation } */
+export const searchUserByEmail = (email) =>
+  request("GET", `/api/friends/search?email=${encodeURIComponent(email)}`);
+
+/** 친구 요청 보내기 (이메일 기준) */
+export const sendFriendRequest = (email) =>
+  request("POST", "/api/friends", { email });
 
 /** 요청 수락 / 거절 */
 export const respondFriendRequest = (senderUid, _receiverUid, action) =>
@@ -120,6 +124,38 @@ export const getStatsBreakdown = (year) =>
 /** 향후 N개월 예상 지출 */
 export const getStatsForecast = (months = 6) =>
   request("GET", `/api/stats/forecast?months=${months}`);
+
+// ── shared (공유 구독) ─────────────────────────
+
+/** 나에게 온 공유 초대 */
+export const getSharedInvites = () => request("GET", "/api/shared/invites");
+
+/** 초대 수락/거절 (action: "accept" | "reject") */
+export const respondSharedInvite = (subId, action) =>
+  request("POST", `/api/shared/${subId}/respond`, { action });
+
+/** 공유 구독 상세 (참여자·분담액) */
+export const getShared = (subId) => request("GET", `/api/shared/${subId}`);
+
+/** 친구 초대 */
+export const inviteToShared = (subId, uid) =>
+  request("POST", `/api/shared/${subId}/members`, { uid });
+
+/** 참여자 내보내기 / 나가기 (uid가 나 자신이면 나가기) */
+export const removeSharedMember = (subId, uid) =>
+  request("DELETE", `/api/shared/${subId}/members/${uid}`);
+
+/** 분담 방식 변경 (custom이면 shares: [{ uid, amount }]) */
+export const updateSharedSplit = (subId, split_type, shares) =>
+  request("PUT", `/api/shared/${subId}/split`, { split_type, shares });
+
+/** 해당 월 회차 정산 현황 (ym: "YYYY-MM") */
+export const getSettlements = (subId, ym) =>
+  request("GET", `/api/shared/${subId}/settlements${ym ? `?ym=${ym}` : ""}`);
+
+/** 정산 완료/취소 기록 */
+export const setSettlement = (subId, uid, due_date, paid) =>
+  request("PUT", `/api/shared/${subId}/settlements`, { uid, due_date, paid });
 
 // ── users ─────────────────────────────────────
 

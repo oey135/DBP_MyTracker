@@ -6,14 +6,14 @@
 //   billing_date → 결제일(day) 추출 → 캘린더 날짜 배치
 //   start_date   → 구독 시작 전 달은 표시 안 함
 //   status       → subscribed(정상) / cancelled(회색 ghost)
-//   price        → 날짜 배지 금액 + 월 합계
+//   price        → 날짜 배지 금액 + 월 합계 (공유 구독은 내 부담액 my_share)
 //   end_date     → 해지일 이전 회차는 정상 결제로, 이후 회차는 ghost로 표시
 //   payment      → 회차별 "결제 완료" 기록 (type = 'payment', due_date = 그 회차 결제일)
 // ─────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from "react";
 import { getPayments, addPayment, deletePayment } from "../db/api";
-import { formatPrice, wasActiveInMonth, effectiveBillingDay, getBillingDay } from "../utils/subscriptionUtils";
+import { formatPrice, myAmount, wasActiveInMonth, effectiveBillingDay, getBillingDay } from "../utils/subscriptionUtils";
 import { getServiceMeta, MONTH_KO, DOW } from "../constants/serviceMeta";
 
 export default function CalendarTab({ subscriptions }) {
@@ -72,7 +72,7 @@ export default function CalendarTab({ subscriptions }) {
     cancelledByDay[d] = onDay.filter(s => !isLiveCycle(s, d));
   }
 
-  const monthlyTotal = Object.values(activeByDay).flat().reduce((sum, s) => sum + s.price, 0);
+  const monthlyTotal = Object.values(activeByDay).flat().reduce((sum, s) => sum + myAmount(s), 0);
 
   // ── 월 이동 ───────────────────────────────
   const prevMonth = () => {
@@ -88,7 +88,7 @@ export default function CalendarTab({ subscriptions }) {
 
   const selActive    = selectedDay ? (activeByDay[selectedDay]    || []) : [];
   const selCancelled = selectedDay ? (cancelledByDay[selectedDay] || []) : [];
-  const selTotal     = selActive.reduce((s, sub) => s + sub.price, 0);
+  const selTotal     = selActive.reduce((s, sub) => s + myAmount(sub), 0);
 
   return (
     <div style={{ padding: "20px 16px 16px" }}>
@@ -141,7 +141,7 @@ export default function CalendarTab({ subscriptions }) {
           const hasActive    = actives.length > 0;
           const hasCancelled = cancels.length > 0;
           const hasAny       = hasActive || hasCancelled;
-          const activeTotal  = actives.reduce((s, b) => s + b.price, 0);
+          const activeTotal  = actives.reduce((s, b) => s + myAmount(b), 0);
           const isToday      = isValid && viewYear === todayY && viewMonth === todayM && dayNum === todayD;
           const isSelected   = isValid && selectedDay === dayNum;
           const dow = i % 7;
@@ -199,9 +199,9 @@ export default function CalendarTab({ subscriptions }) {
                           background: "#F5F5F5", borderRadius: 6, padding: "1px 4px",
                           lineHeight: 1.4, textDecoration: "line-through",
                         }}>
-                          {cancels.reduce((s, b) => s + b.price, 0) >= 10000
-                            ? `${Math.round(cancels.reduce((s, b) => s + b.price, 0) / 1000)}k`
-                            : cancels.reduce((s, b) => s + b.price, 0).toLocaleString()}
+                          {cancels.reduce((s, b) => s + myAmount(b), 0) >= 10000
+                            ? `${Math.round(cancels.reduce((s, b) => s + myAmount(b), 0) / 1000)}k`
+                            : cancels.reduce((s, b) => s + myAmount(b), 0).toLocaleString()}
                         </div>
                       )}
                     </>
@@ -256,7 +256,7 @@ function DayDetail({ day, month, active, cancelled, total, due, paymentMap, toda
               {s.memo && <p style={{ fontSize: 11, color: "#aaa", margin: "2px 0 0" }}>{s.memo}</p>}
             </div>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontWeight: 700, fontSize: 15, color: "#534AB7", margin: "0 0 4px" }}>{formatPrice(s.price)}</p>
+              <p style={{ fontWeight: 700, fontSize: 15, color: "#534AB7", margin: "0 0 4px" }}>{formatPrice(myAmount(s))}</p>
               <PayToggle sub={s} due={due} record={paymentMap[`${s.sub_id}|${due}`]} todayStr={todayStr} onToggle={onTogglePaid} />
             </div>
           </div>
@@ -288,7 +288,7 @@ function DayDetail({ day, month, active, cancelled, total, due, paymentMap, toda
                   <p style={{ fontWeight: 600, fontSize: 14, margin: 0, color: "#aaa", textDecoration: "line-through" }}>{s.title}</p>
                   <p style={{ fontSize: 11, color: "#bbb", margin: "2px 0 0" }}>해지됨</p>
                 </div>
-                <p style={{ fontWeight: 600, fontSize: 15, color: "#ccc", margin: 0, textDecoration: "line-through" }}>{formatPrice(s.price)}</p>
+                <p style={{ fontWeight: 600, fontSize: 15, color: "#ccc", margin: 0, textDecoration: "line-through" }}>{formatPrice(myAmount(s))}</p>
               </div>
             );
           })}
@@ -323,7 +323,7 @@ function MonthList({ activeByDay, cancelledByDay, viewYear, viewMonth, paymentMa
       </p>
       {Object.keys(groups).map(Number).sort((a, b) => a - b).map(day => {
         const { active, cancelled } = groups[day];
-        const dayTotal = active.reduce((s, b) => s + b.price, 0);
+        const dayTotal = active.reduce((s, b) => s + myAmount(b), 0);
         const due = toDateStr(viewYear, viewMonth, day);
         return (
           <div key={day} style={{ marginBottom: 16 }}>
@@ -349,7 +349,7 @@ function MonthList({ activeByDay, cancelledByDay, viewYear, viewMonth, paymentMa
                 }}>
                   <span style={{ fontSize: 16 }}>{meta.icon}</span>
                   <span style={{ flex: 1, fontSize: 13, color: "#333", fontWeight: 500 }}>{s.title}<CycleTag sub={s} /></span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#534AB7" }}>{formatPrice(s.price)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#534AB7" }}>{formatPrice(myAmount(s))}</span>
                   <PayToggle sub={s} due={due} record={paymentMap[`${s.sub_id}|${due}`]} todayStr={todayStr} onToggle={onTogglePaid} />
                 </div>
               );
@@ -365,7 +365,7 @@ function MonthList({ activeByDay, cancelledByDay, viewYear, viewMonth, paymentMa
                 }}>
                   <span style={{ fontSize: 16, filter: "grayscale(70%)" }}>{meta.icon}</span>
                   <span style={{ flex: 1, fontSize: 13, color: "#bbb", fontWeight: 500, textDecoration: "line-through" }}>{s.title}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#ccc", textDecoration: "line-through" }}>{formatPrice(s.price)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#ccc", textDecoration: "line-through" }}>{formatPrice(myAmount(s))}</span>
                 </div>
               );
             })}
