@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getPayments, addPayment, deletePayment } from "../db/api";
-import { formatPrice, myAmount, wasActiveInMonth, effectiveBillingDay, getBillingDay } from "../utils/subscriptionUtils";
+import { formatPrice, formatShortWon, myAmount, wasActiveInMonth, effectiveBillingDay, getBillingDay } from "../utils/subscriptionUtils";
 import { getServiceMeta, MONTH_KO, DOW } from "../constants/serviceMeta";
 
 export default function CalendarTab({ subscriptions }) {
@@ -191,7 +191,7 @@ export default function CalendarTab({ subscriptions }) {
                           maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           lineHeight: 1.4,
                         }}>
-                          {activeTotal >= 10000 ? `${Math.round(activeTotal / 1000)}k` : activeTotal.toLocaleString()}
+                          {formatShortWon(activeTotal)}
                         </div>
                       ) : (
                         <div style={{
@@ -199,9 +199,7 @@ export default function CalendarTab({ subscriptions }) {
                           background: "#F5F5F5", borderRadius: 6, padding: "1px 4px",
                           lineHeight: 1.4, textDecoration: "line-through",
                         }}>
-                          {cancels.reduce((s, b) => s + myAmount(b), 0) >= 10000
-                            ? `${Math.round(cancels.reduce((s, b) => s + myAmount(b), 0) / 1000)}k`
-                            : cancels.reduce((s, b) => s + myAmount(b), 0).toLocaleString()}
+                          {formatShortWon(cancels.reduce((s, b) => s + myAmount(b), 0))}
                         </div>
                       )}
                     </>
