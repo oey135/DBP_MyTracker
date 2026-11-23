@@ -33,17 +33,19 @@ export default function HomeTab({ subscriptions, onNavigate }) {
         0,
     );
 
+    const alertedIds = new Set((alerts?.upcoming ?? []).map((a) => a.sub_id));
+
     const upcomingBills = active
         .map((s) => ({
             ...s,
             days: getDaysUntil(s.billing_date, s.billing_cycle),
         }))
-        // 알림 설정(notify_days_before) 범위에 들어온 구독은 알림 대상
+        // 알림 대상 여부는 서버(/api/alerts upcoming)가 notify_days_before 기준으로 계산한 결과만 따른다.
+        // 알림을 끈 구독(notify_days_before = NULL)은 일정에는 보이지만 알림(🔔·강조)은 붙지 않는다.
         .map((s) => ({
             ...s,
-            alerted:
-                s.notify_days_before != null &&
-                s.days <= s.notify_days_before,
+            alerted: alertedIds.has(s.sub_id),
+            muted: s.notify_days_before == null,
         }))
         .filter((s) => s.days >= 0 && (s.alerted || s.days <= 14))
         .sort((a, b) => b.alerted - a.alerted || a.days - b.days)
@@ -139,10 +141,10 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                 </div>
             </div>
 
-            {/* 알림 (정산·초대·친구 요청) */}
+            {/* 알림 (결제 알림·정산·초대·친구 요청) */}
             <AlertsCard alerts={alerts} onNavigate={onNavigate} />
 
-            {/* 결제 예정 알림 (알림 설정 범위 + 14일 이내) */}
+            {/* 결제 일정 (14일 이내 + 알림 설정 범위). 알림 여부와 무관한 일정 목록 */}
             {upcomingBills.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                     <h2
@@ -153,7 +155,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                             color: "#1A1A2E",
                         }}
                     >
-                        곧 결제될 구독 🔔
+                        다가오는 결제 일정
                     </h2>
                     <div
                         style={{
@@ -216,7 +218,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                                                     margin: 0,
                                                 }}
                                             >
-                                                {s.alerted && "🔔 "}
+                                                {s.alerted ? "🔔 " : s.muted ? "🔕 " : ""}
                                                 {s.billing_cycle === "yearly" &&
                                                     "연간 · "}
                                                 {s.days === 0
@@ -231,7 +233,7 @@ export default function HomeTab({ subscriptions, onNavigate }) {
                                             fontSize: 14,
                                             margin: 0,
                                             color:
-                                                s.alerted || s.days <= 3
+                                                s.alerted
                                                     ? "#E50914"
                                                     : "#7F77DD",
                                         }}
@@ -364,10 +366,19 @@ export default function HomeTab({ subscriptions, onNavigate }) {
 }
 
 // ── 알림 카드 ─────────────────────────────────
-// 결제 임박 알림은 아래 "곧 결제될 구독"에 🔔로 표시하므로 여기서는 나머지를 모아 보여준다
+// 결제 알림은 서버가 notify_days_before 범위에 든 구독만 골라 준 upcoming을 그대로 쓴다.
+// (알림 끔 = NULL 이면 여기에 나오지 않는다)
 function AlertsCard({ alerts, onNavigate }) {
     if (!alerts) return null;
     const items = [];
+    for (const u of alerts.upcoming ?? [])
+        items.push({
+            key: `up-${u.sub_id}-${u.due_date}`,
+            icon: "🔔",
+            text: `${u.title} ${u.days_left === 0 ? "오늘 결제" : `${u.days_left}일 후 결제`} · ${formatPrice(u.amount)}`,
+            sub: `결제 예정일 ${u.due_date}`,
+            tab: "subscriptions",
+        });
     const receive = alerts.settlements.filter((x) => x.direction === "receive");
     const send = alerts.settlements.filter((x) => x.direction === "send");
     if (receive.length)
